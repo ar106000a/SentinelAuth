@@ -1,0 +1,16 @@
+{
+  "name": "sentinelauth",
+  "private": true,
+  "version": "0.0.1",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "turbo": "latest",
+    "typescript": "^5.8.0"
+  }
+}
