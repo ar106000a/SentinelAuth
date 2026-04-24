@@ -11,7 +11,11 @@
     "lint:fix": "turbo run lint:fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose stop",
+    "db:reset": "docker compose down -v && docker compose up -d",
+    "db:logs": "docker compose logs -f postgres"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

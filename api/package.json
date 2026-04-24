@@ -9,8 +9,16 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix"
   },
-  "dependencies": {},
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "^0.45.2",
+    "ioredis": "^5.10.1",
+    "pg": "^8.20.0"
+  },
   "devDependencies": {
+    "@types/ioredis": "^5.0.0",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
     "tsx": "^4.21.0",
     "typescript": "^5.8.0"
   }
