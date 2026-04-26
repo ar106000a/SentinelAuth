@@ -15,7 +15,8 @@
     "db:up": "docker compose up -d",
     "db:down": "docker compose stop",
     "db:reset": "docker compose down -v && docker compose up -d",
-    "db:logs": "docker compose logs -f postgres"
+    "db:logs": "docker compose logs -f postgres",
+    "test": "turbo run test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
