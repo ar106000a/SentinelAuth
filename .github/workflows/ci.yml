@@ -64,10 +64,10 @@ jobs:
         run: pnpm --filter @sentinelauth/api db:migrate
 
       - name: Typecheck
-        run: pnpm typecheck
+        run: pnpm --filter @sentinelauth/api typecheck
 
       - name: Lint
-        run: pnpm lint
+        run: pnpm --filter @sentinelauth/api lint
 
       - name: Test
-        run: pnpm test
+        run: pnpm --filter @sentinelauth/api test
