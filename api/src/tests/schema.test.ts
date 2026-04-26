@@ -11,6 +11,11 @@ import {
 import { sql } from "drizzle-orm";
 
 describe("Database schema smoke tests", () => {
+  // Inside your test setup or database initialization file
+  console.log(
+    "DATABASE_URL check:",
+    process.env.DATABASE_URL ? "Defined" : "UNDEFINED"
+  );
   it("should connect to the database", async () => {
     const result = await db.execute(sql`SELECT 1 as connected`);
     expect(result.rows[0]).toEqual({ connected: 1 });
