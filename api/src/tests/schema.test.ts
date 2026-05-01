@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { db } from "../db";
+import { db, adminDb } from "../db";
 import {
   tenants,
   users,
@@ -23,12 +23,12 @@ describe("Database schema smoke tests", () => {
 
   it("should have all 6 tables accessible via Drizzle", async () => {
     const results = await Promise.all([
-      db.select().from(tenants).limit(0),
-      db.select().from(tenantSessions).limit(0),
-      db.select().from(users).limit(0),
-      db.select().from(sessions).limit(0),
-      db.select().from(otpTokens).limit(0),
-      db.select().from(riskLogs).limit(0),
+      adminDb.select().from(tenants).limit(0),
+      adminDb.select().from(tenantSessions).limit(0),
+      adminDb.select().from(users).limit(0),
+      adminDb.select().from(sessions).limit(0),
+      adminDb.select().from(otpTokens).limit(0),
+      adminDb.select().from(riskLogs).limit(0),
     ]);
 
     results.forEach((result) => {

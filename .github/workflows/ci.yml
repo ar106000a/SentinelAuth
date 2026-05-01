@@ -38,6 +38,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://sentinel:sentinel_dev_password@localhost:5432/sentinelauth
+      DATABASE_APP_URL: postgresql://app_user:app_user_password@localhost:5432/sentinelauth
       REDIS_URL: redis://localhost:6379
       NODE_ENV: test
 
@@ -71,3 +72,16 @@ jobs:
 
       - name: Test
         run: pnpm --filter @sentinelauth/api test
+      - name: Run migrations
+        run: pnpm --filter @sentinelauth/api db:migrate
+
+      - name: Setup app_user and RLS
+        run: |
+          PGPASSWORD=sentinel_dev_password psql -h localhost -U sentinel -d sentinelauth -f api/src/db/migrations/rls-policies.sql
+          PGPASSWORD=sentinel_dev_password psql -h localhost -U sentinel -d sentinelauth -c "
+            CREATE ROLE app_user WITH LOGIN PASSWORD 'app_user_password';
+            GRANT CONNECT ON DATABASE sentinelauth TO app_user;
+            GRANT USAGE ON SCHEMA public TO app_user;
+            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
+            GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user;
+          "

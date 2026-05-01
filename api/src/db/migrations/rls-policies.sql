@@ -6,16 +6,16 @@ ALTER TABLE risk_logs ENABLE ROW LEVEL SECURITY;
 
 -- Isolation policies
 CREATE POLICY tenant_isolation ON users
-  USING (tenant_id = current_setting('app.current_tenant')::uuid);
+  USING (tenant_id = current_setting('app.current_tenant', true)::uuid);
 
 CREATE POLICY tenant_isolation ON sessions
-  USING (tenant_id = current_setting('app.current_tenant')::uuid);
+  USING (tenant_id = current_setting('app.current_tenant', true)::uuid);
 
 CREATE POLICY tenant_isolation ON otp_tokens
-  USING (tenant_id = current_setting('app.current_tenant')::uuid);
+  USING (tenant_id = current_setting('app.current_tenant', true)::uuid);
 
 CREATE POLICY tenant_isolation ON risk_logs
-  USING (tenant_id = current_setting('app.current_tenant')::uuid);
+  USING (tenant_id = current_setting('app.current_tenant', true)::uuid);
 
 -- Force RLS even for table owner
 ALTER TABLE users FORCE ROW LEVEL SECURITY;
