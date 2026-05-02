@@ -7,10 +7,10 @@ dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
 const envSchema = z.object({
   // Database
-  DATABASE_URL: z.string().url("DATABASE_URL must be a valid URL"),
-DATABASE_APP_URL: z.string().url("DATABASE_APP_URL must be a valid URL"),
+  DATABASE_URL: z.url("DATABASE_URL must be a valid URL"),
+  DATABASE_APP_URL: z.url("DATABASE_APP_URL must be a valid URL"),
   // Redis
-  REDIS_URL: z.string().url("REDIS_URL must be a valid URL"),
+  REDIS_URL: z.url("REDIS_URL must be a valid URL"),
 
   // API
   PORT: z.coerce.number().default(3000),
@@ -27,7 +27,7 @@ DATABASE_APP_URL: z.string().url("DATABASE_APP_URL must be a valid URL"),
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  console.error("❌ Invalid environment variables:");
+  console.error("Invalid environment variables:");
   parsed.error.issues.forEach((issue) => {
     console.error(`  ${issue.path.join(".")}: ${issue.message}`);
   });
