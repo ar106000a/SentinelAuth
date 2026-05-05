@@ -1,91 +1,54 @@
-// import "dotenv/config";
-// import { Pool } from "pg";
-// import Redis from "ioredis";
-
-// const pool = new Pool({
-//   connectionString: process.env.DATABASE_URL,
-// });
-
-// const redis = new Redis(process.env.REDIS_URL as string);
-
-// async function main() {
-//   // Test PostgreSQL
-//   const pgClient = await pool.connect();
-//   const result = await pgClient.query("SELECT NOW() as current_time");
-//   console.log("PostgreSQL connected:", result.rows[0].current_time);
-//   pgClient.release();
-
-//   // Test Redis
-//   await redis.set("test_key", "sentinelauth_alive");
-//   const value = await redis.get("test_key");
-//   console.log("Redis connected, test value:", value);
-
-//   await pool.end();
-//   redis.disconnect();
-// }
-
-// main().catch(console.error);
-
-// import "dotenv/config";
-// import { db } from "./db";
-// import { tenants } from "./db/schema";
-
-// async function main() {
-//   const result = await db.select().from(tenants).limit(1);
-//   console.log("DB connected. Tables ready:", result);
-// }
-
-// main().catch(console.error);
-
-import "./config/env"; // must be first import
+import "./config/env"; // must be first — validates all env vars
 import { Hono } from "hono";
+import { serve } from "@hono/node-server";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { pingRedis } from "./lib/redis";
+import { errorHandler } from "./middleware/error-handler";
 import { rateLimitMiddleware } from "./middleware/rate-limit";
-import { AUTH_RATE_LIMIT, DEFAULT_RATE_LIMIT } from "./lib/rate-limiter";
-import { db, adminDb } from "./db";
-import { tenants } from "./db/schema";
+import { DEFAULT_RATE_LIMIT, AUTH_RATE_LIMIT } from "./lib/rate-limiter";
+import { env } from "./config/env";
+import healthRoutes from "./routes/health";
 
 const app = new Hono();
 
-// Global middleware
+// 1. Error handler — must be first so it catches errors from all middleware
+app.use("*", errorHandler);
+
+// 2. Observability
 app.use("*", logger());
-app.use("*", cors());
 
-// Health check — no rate limiting
-app.get("/health", async (c) => {
-  const redisOk = await pingRedis();
+// 3. CORS
+app.use(
+  "*",
+  cors({
+    origin: ["http://localhost:3001"], // dashboard dev server
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Authorization"],
+    exposeHeaders: ["X-RateLimit-Limit", "X-RateLimit-Remaining"],
+  })
+);
 
-  return c.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    services: {
-      redis: redisOk ? "healthy" : "unhealthy",
-    },
-  });
-});
-
-// General API routes — default rate limit
+// 4. Rate limiting
 app.use("/api/*", rateLimitMiddleware(DEFAULT_RATE_LIMIT));
-
-// Auth routes — stricter rate limit
 app.use("/api/auth/*", rateLimitMiddleware(AUTH_RATE_LIMIT));
 
-// Stub auth routes (will be implemented in Phase 2)
-app.post("/api/auth/register", (c) => {
-  return c.json({ message: "Register endpoint — coming in Week 5" }, 200);
+// 5. Routes
+app.route("/health", healthRoutes);
+
+// Catch-all 404
+app.notFound((c) => {
+  return c.json(
+    {
+      success: false,
+      error: { message: "Route not found", code: "NOT_FOUND" },
+    },
+    404
+  );
 });
-
-app.post("/api/auth/login", (c) => {
-  return c.json({ message: "Login endpoint — coming in Week 8" }, 200);
-});
-
-// Start server
-const port = 3000;
-console.log(`SentinelAuth API starting on port ${port}`);
-
-export default {
-  port,
+serve({
   fetch: app.fetch,
-};
+  port: env.PORT,
+});
+console.log(`SentinelAuth API starting on port ${env.PORT}`);
+
+export default app;
