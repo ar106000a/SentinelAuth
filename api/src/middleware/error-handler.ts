@@ -1,6 +1,6 @@
 import { Context, Next } from "hono";
-import { AppError } from "../utils/error";
-import { errorResponse } from "../utils/response";
+import { AppError } from "../utils/error.js";
+import { errorResponse } from "../utils/response.js";
 
 export async function errorHandler(c: Context, next: Next) {
   try {

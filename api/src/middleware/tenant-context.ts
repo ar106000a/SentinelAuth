@@ -3,7 +3,7 @@ import { adminDb } from "../db";
 import { tenants } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { createHash } from "crypto";
-import { AuthenticationError } from "../utils/errors";
+import { AuthenticationError } from "../utils/error";
 
 export async function tenantContext(c: Context, next: Next) {
   const authHeader = c.req.header("Authorization");
