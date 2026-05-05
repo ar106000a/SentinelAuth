@@ -45,10 +45,12 @@ app.notFound((c) => {
     404
   );
 });
-serve({
-  fetch: app.fetch,
-  port: env.PORT,
-});
-console.log(`SentinelAuth API starting on port ${env.PORT}`);
+if (process.env.NODE_ENV !== "test") {
+  serve({
+    fetch: app.fetch,
+    port: env.PORT,
+  });
+  console.log(`SentinelAuth API running on http://localhost:${env.PORT}`);
+}
 
 export default app;
