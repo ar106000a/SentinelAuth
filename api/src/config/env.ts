@@ -22,6 +22,9 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRY: z.string().default("15m"),
   JWT_REFRESH_EXPIRY: z.string().default("7d"),
   MFA_OTP_EXPIRY_MINUTES: z.coerce.number().default(10),
+  ARGON2_MEMORY_COST: z.coerce.number().default(65536),
+  ARGON2_TIME_COST: z.coerce.number().default(3),
+  HIBP_TIMEOUT_MS: z.coerce.number().default(2000),
 });
 
 const parsed = envSchema.safeParse(process.env);

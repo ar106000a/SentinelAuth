@@ -3,7 +3,7 @@ import {
   consumeToken,
   RateLimitConfig,
   AUTH_RATE_LIMIT,
-} from "../lib/rate-limiter.js";
+} from "../lib/rate-limiter";
 
 export function rateLimitMiddleware(config: RateLimitConfig = AUTH_RATE_LIMIT) {
   return async (c: Context, next: Next) => {

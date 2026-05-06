@@ -4,7 +4,9 @@ import { serve } from "@hono/node-server";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { errorHandler } from "./middleware/error-handler";
+import { errorResponse } from "./utils/response";
 import { rateLimitMiddleware } from "./middleware/rate-limit";
+import { requestId } from "./middleware/request-id";
 import { DEFAULT_RATE_LIMIT, AUTH_RATE_LIMIT } from "./lib/rate-limiter";
 import { env } from "./config/env";
 import healthRoutes from "./routes/health";
@@ -16,6 +18,7 @@ app.use("*", errorHandler);
 
 // 2. Observability
 app.use("*", logger());
+app.use("*", requestId);
 
 // 3. CORS
 app.use(
@@ -37,13 +40,7 @@ app.route("/health", healthRoutes);
 
 // Catch-all 404
 app.notFound((c) => {
-  return c.json(
-    {
-      success: false,
-      error: { message: "Route not found", code: "NOT_FOUND" },
-    },
-    404
-  );
+  return errorResponse(c, "Route not found", 404, "NOT_FOUND");
 });
 if (process.env.NODE_ENV !== "test") {
   serve({
