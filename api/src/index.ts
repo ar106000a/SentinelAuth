@@ -5,20 +5,30 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { errorHandler } from "./middleware/error-handler";
 import { errorResponse } from "./utils/response";
+import { AppError } from "./utils/error";
 import { rateLimitMiddleware } from "./middleware/rate-limit";
 import { requestId } from "./middleware/request-id";
 import { DEFAULT_RATE_LIMIT, AUTH_RATE_LIMIT } from "./lib/rate-limiter";
 import { env } from "./config/env";
 import healthRoutes from "./routes/health";
+import tenants from "./routes/tenants";
 
 const app = new Hono();
 
-// 1. Error handler — must be first so it catches errors from all middleware
+// Global error handler for all thrown errors
+app.onError((err, c) => {
+  if (err instanceof AppError) {
+    return errorResponse(c, err.message, err.statusCode, err.code);
+  }
+  console.error("unhandled error:", err);
+  return errorResponse(c, "Internal server error", 500, "INTERNAL_ERROR");
+});
+
+// 1. Error handler middleware — catches errors from middleware chain
 app.use("*", errorHandler);
 
 // 2. Observability
 app.use("*", logger());
-app.use("*", requestId);
 
 // 3. CORS
 app.use(
@@ -30,13 +40,14 @@ app.use(
     exposeHeaders: ["X-RateLimit-Limit", "X-RateLimit-Remaining"],
   })
 );
-
+app.use("*", requestId);
 // 4. Rate limiting
 app.use("/api/*", rateLimitMiddleware(DEFAULT_RATE_LIMIT));
 app.use("/api/auth/*", rateLimitMiddleware(AUTH_RATE_LIMIT));
 
 // 5. Routes
 app.route("/health", healthRoutes);
+app.route("/tenants", tenants);
 
 // Catch-all 404
 app.notFound((c) => {

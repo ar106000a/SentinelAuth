@@ -15,7 +15,8 @@ CREATE POLICY tenant_isolation ON otp_tokens
   USING (tenant_id = current_setting('app.current_tenant', true)::uuid);
 
 CREATE POLICY tenant_isolation ON risk_logs
-  USING (tenant_id = current_setting('app.current_tenant', true)::uuid);
+  USING (tenant_id = current_setting('app.current_tenant', true)::uuid); 
+  --true as the second argument is actually missing_ok, if there is no current_tenant set with a query, it ll not crash, but rather carries the transaction with a null value instead..
 
 -- Force RLS even for table owner
 ALTER TABLE users FORCE ROW LEVEL SECURITY;

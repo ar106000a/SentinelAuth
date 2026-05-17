@@ -1,0 +1,25 @@
+import { z } from "zod";
+
+export const registerTenantSchema = z.object({
+  name: z
+    .string()
+    .min(2, " Name must be at least 2 characters long")
+    .max(100, "Name must be under 100 characters")
+    .trim(),
+  adminEmail: z.email("Must be a valid Email Address").toLowerCase().trim(),
+  password: z
+    .string()
+    .min(12, "Password must be at least 12 characters long")
+    .max(128, "Password must be under 128 characters"),
+});
+export type RegisterTenantInput = z.infer<typeof registerTenantSchema>;
+
+export const verifyEmailSchema = z.object({
+  adminEmail: z.email().toLowerCase().trim(),
+  otp: z
+    .string()
+    .length(6, "otp must be exactly 6 digits")
+    .regex(/^\d+$/, "OTP must be numeric"),
+});
+
+export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;

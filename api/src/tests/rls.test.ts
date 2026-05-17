@@ -1,5 +1,5 @@
 import { describe, it, expect, afterAll, beforeAll } from "vitest";
-import { pool, db, adminDb } from "../db";
+import {  db, adminDb } from "../db";
 import { tenants, users } from "../db/schema";
 import { withTenant } from "../db/with-tenant";
 import { drizzle } from "drizzle-orm/node-postgres";

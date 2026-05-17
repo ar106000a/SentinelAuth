@@ -18,7 +18,7 @@ export async function withTenant<T>(
     // Set the tenant context — RLS policies read this
     await client.query("SELECT set_config('app.current_tenant', $1, true)", [
       tenantId,
-    ]);
+    ]); //the true as the third argument is set_local, which means the connection ll remember this variable only within this transaction, when the connection ll go back to the pool, it wont remember it anymore, no session bleeding...
 
     const result = await callback(client);
 

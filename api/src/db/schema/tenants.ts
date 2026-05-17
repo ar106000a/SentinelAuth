@@ -1,3 +1,4 @@
+import { boolean } from "drizzle-orm/pg-core";
 import { pgTable, uuid, text, timestamp, jsonb } from "drizzle-orm/pg-core";
 
 export const tenants = pgTable("tenants", {
@@ -13,6 +14,7 @@ export const tenants = pgTable("tenants", {
       failOpen: boolean;
     }>()
     .default({ riskThreshold: 0.7, failOpen: true }),
+  isVerified: boolean("is_verified").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

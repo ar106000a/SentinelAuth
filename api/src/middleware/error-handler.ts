@@ -4,10 +4,20 @@ import { errorResponse } from "../utils/response";
 
 export async function errorHandler(c: Context, next: Next) {
   try {
-    await next();
+    return await next();
   } catch (error) {
     if (error instanceof AppError) {
       return errorResponse(c, error.message, error.statusCode, error.code);
+    }
+
+    //ducktyping for test debugging
+    if (error && typeof error === "object" && "statusCode" in error) {
+      return errorResponse(
+        c,
+        (error as any).message,
+        (error as any).statusCode,
+        (error as any).code
+      );
     }
     if (
       typeof error === "object" &&
