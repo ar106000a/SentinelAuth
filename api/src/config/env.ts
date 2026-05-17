@@ -26,10 +26,20 @@ const envSchema = z.object({
   ARGON2_TIME_COST: z.coerce.number().default(3),
   HIBP_TIMEOUT_MS: z.coerce.number().default(2000),
   // Gmail
-  GMAIL_CLIENT_ID: z.string().min(1, "GMAIL_CLIENT_ID is required"),
-  GMAIL_CLIENT_SECRET: z.string().min(1, "GMAIL_CLIENT_SECRET is required"),
-  GMAIL_REFRESH_TOKEN: z.string().min(1, "GMAIL_REFRESH_TOKEN is required"),
-  GMAIL_SENDER: z.email("GMAIL_SENDER must be a valid email"),
+  // Gmail credentials. Optional in test/CI; provide real values in prod/dev.
+  GMAIL_CLIENT_ID: z.string().min(1, "GMAIL_CLIENT_ID is required").optional(),
+  GMAIL_CLIENT_SECRET: z
+    .string()
+    .min(1, "GMAIL_CLIENT_SECRET is required")
+    .optional(),
+  GMAIL_REFRESH_TOKEN: z
+    .string()
+    .min(1, "GMAIL_REFRESH_TOKEN is required")
+    .optional(),
+  GMAIL_SENDER: z
+    .string()
+    .email("GMAIL_SENDER must be a valid email")
+    .optional(),
 });
 
 const parsed = envSchema.safeParse(process.env); //we dont use parse() here because if there is an error, it screams out loud unless we wrap a try catch block around it...safeParse() returns a plain object indicating inside whether the validation succeeded or not
