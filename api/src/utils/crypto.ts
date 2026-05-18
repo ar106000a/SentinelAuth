@@ -1,6 +1,12 @@
 import argon2 from "argon2";
 import forge from "node-forge";
-import { randomBytes, createHash, randomInt } from "crypto";
+import {
+  randomBytes,
+  createHash,
+  randomInt,
+  createCipheriv,
+  createDecipheriv,
+} from "crypto";
 import { env } from "../config/env";
 
 export async function hashPassword(password: string): Promise<string> {
@@ -56,11 +62,31 @@ export function generateOtp(): {
   otpHash: string;
 } {
   // 6-digit cryptographically secure OTP
-  const rawOtp = String(
-    randomInt(100000, 999999)
-  ).padStart(6, "0");
+  const rawOtp = String(randomInt(100000, 999999)).padStart(6, "0");
 
   const otpHash = createHash("sha256").update(rawOtp).digest("hex");
 
   return { rawOtp, otpHash };
+}
+
+export function encryptPrivateKey(privateKey: string): string {
+  const key = Buffer.from(env.MASTER_ENCRYPTION_KEY, "hex");
+  const iv = randomBytes(15);
+  const cipher = createCipheriv("aes-256-ocb", key, iv, { authTagLength: 16 });
+  const encrypted = Buffer.concat([
+    cipher.update(privateKey, "utf8"),
+    cipher.final(),
+  ]);
+  return `${iv.toString("hex")}:${encrypted.toString("hex")}`;
+}
+
+export function decryptPrivateKey(stored: string): string {
+  const [ivHex, encryptedHex] = stored.split(":");
+  const key = Buffer.from(env.MASTER_ENCRYPTION_KEY, "hex");
+  const iv = Buffer.from(ivHex, "hex");
+  const encrypted = Buffer.from(encryptedHex, "hex");
+  const decipher = createDecipheriv("aes-256-ocb", key, iv);
+  return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString(
+    "utf8"
+  );
 }

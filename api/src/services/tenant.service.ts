@@ -6,6 +6,7 @@ import {
   generateRSAKeyPair,
   generateSecretKey,
   generateOtp,
+  encryptPrivateKey,
 } from "../utils/crypto";
 import { isPasswordPwned } from "./hibp.service";
 import {
@@ -16,7 +17,6 @@ import {
 } from "../utils/error";
 import { sendOtpEmail } from "./email.service";
 import { sha256 } from "../utils/crypto";
-
 
 export interface RegisterTenantInput {
   name: string;
@@ -54,16 +54,14 @@ export async function registerTenant(
 
   const passwordHash = await hashPassword(password);
 
-
-
   const [tenant] = await adminDb
     .insert(tenants)
     .values({
       name,
       adminEmail,
       passwordHash,
-      publicKey: 'dummy public key',
-      secretKeyHash: 'dummy secret key hash',
+      publicKey: "dummy public key",
+      secretKeyHash: "dummy secret key hash",
       isVerified: false,
       settings: { riskThreshold: 0.7, failOpen: true },
     })
@@ -124,6 +122,11 @@ export async function verifyTenantEmail(
     throw new AuthenticationError("Invalid or expired verification code");
   }
 
+  const now = new Date();
+  if (token.expiresAt < now) {
+    throw new AuthenticationError("Verification code has expired");
+  }
+
   if (token.usedAt !== null) {
     throw new AuthenticationError("Verification code has already been used");
   }
@@ -134,19 +137,26 @@ export async function verifyTenantEmail(
 
   await adminDb
     .update(otpTokens)
-    .set({ usedAt: new Date() })
+    .set({ usedAt: now })
     .where(eq(otpTokens.id, token.id));
-  const { publicKey } = generateRSAKeyPair();
-  const { rawSecret,secretKeyHash } = generateSecretKey();
+  const { publicKey, privateKey } = generateRSAKeyPair();
+  const { rawSecret, secretKeyHash } = generateSecretKey();
 
+  const privateKeyEncrypted = encryptPrivateKey(privateKey);
   await adminDb
     .update(tenants)
-    .set({ isVerified: true, publicKey, secretKeyHash, updatedAt: new Date() })
+    .set({
+      isVerified: true,
+      publicKey,
+      secretKeyHash,
+      privateKeyEncrypted,
+      updatedAt: new Date(),
+    })
     .where(eq(tenants.id, tenant.id));
 
-    return {
-      tenantId: tenant.id,
-      publicKey,
-      secretKey: rawSecret
-    }
+  return {
+    tenantId: tenant.id,
+    publicKey,
+    secretKey: rawSecret,
+  };
 }

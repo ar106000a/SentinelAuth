@@ -15,6 +15,13 @@
       "when": 1779039102712,
       "tag": "0001_swift_wolfpack",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779111476711,
+      "tag": "0002_hard_scalphunter",
+      "breakpoints": true
     }
   ]
 }

@@ -18,10 +18,14 @@ const TEST_EMAILS = [
 ];
 
 afterAll(async () => {
-  await adminDb.delete(tenants).where(inArray(tenants.adminEmail, [
-    ...TEST_EMAILS,
-    "register-non-numeric-otp@sentineltest.com",
-  ]));
+  await adminDb
+    .delete(tenants)
+    .where(
+      inArray(tenants.adminEmail, [
+        ...TEST_EMAILS,
+        "register-non-numeric-otp@sentineltest.com",
+      ])
+    );
 });
 
 describe("POST /tenants/register", () => {
@@ -225,5 +229,120 @@ describe("POST /tenants/verify-email", () => {
     );
 
     expect(res.status).toBe(400);
+  });
+  it("rejects missing name field with 400", async () => {
+    const res = await app.fetch(
+      new Request("http://localhost/tenants/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminEmail: "missing-name@test.com",
+          password: "SuperSecure!Password123",
+        }),
+      })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects empty body with 400", async () => {
+    const res = await app.fetch(
+      new Request("http://localhost/tenants/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects non-JSON body with 400", async () => {
+    const res = await app.fetch(
+      new Request("http://localhost/tenants/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "not json at all",
+      })
+    );
+    expect(res.status).toBe(400);
+  });
+  it("rejects expired OTP", async () => {
+    // Ensure no leftover tenant exists from previous runs
+    await adminDb
+      .delete(tenants)
+      .where(eq(tenants.adminEmail, "expired-otp@sentineltest.com"));
+
+    // Register a fresh tenant
+    await app.fetch(
+      new Request("http://localhost/tenants/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Expired OTP Corp",
+          adminEmail: "expired-otp@sentineltest.com",
+          password: "SuperSecure!Password123",
+        }),
+      })
+    );
+
+    // Force expire the OTP directly in DB
+    const [tenant] = await adminDb
+      .select({ id: tenants.id })
+      .from(tenants)
+      .where(eq(tenants.adminEmail, "expired-otp@sentineltest.com"));
+
+    const { rawOtp, otpHash } = generateOtp();
+
+    await adminDb
+      .update(otpTokens)
+      .set({
+        tokenHash: otpHash,
+        expiresAt: new Date(Date.now() - 1000), // already expired
+      })
+      .where(eq(otpTokens.tenantId, tenant.id));
+
+    const res = await app.fetch(
+      new Request("http://localhost/tenants/verify-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminEmail: "expired-otp@sentineltest.com",
+          otp: rawOtp,
+        }),
+      })
+    );
+
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects already used OTP", async () => {
+    // This reuses TEST_EMAILS[2] which was already verified above
+    const res = await app.fetch(
+      new Request("http://localhost/tenants/verify-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminEmail: TEST_EMAILS[2],
+          otp: "123456",
+        }),
+      })
+    );
+
+    // Already verified — should get validation error not auth error
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects OTP for nonexistent tenant", async () => {
+    const res = await app.fetch(
+      new Request("http://localhost/tenants/verify-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminEmail: "ghost@sentineltest.com",
+          otp: "123456",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(404);
   });
 });

@@ -40,6 +40,9 @@ const envSchema = z.object({
     .string()
     .email("GMAIL_SENDER must be a valid email")
     .optional(),
+  MASTER_ENCRYPTION_KEY: z
+    .string()
+    .min(64, "MASTER_ENCRYPTION_KEY must be 32 bytes hex"),
 });
 
 const parsed = envSchema.safeParse(process.env); //we dont use parse() here because if there is an error, it screams out loud unless we wrap a try catch block around it...safeParse() returns a plain object indicating inside whether the validation succeeded or not
