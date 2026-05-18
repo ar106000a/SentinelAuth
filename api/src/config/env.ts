@@ -40,9 +40,11 @@ const envSchema = z.object({
     .string()
     .email("GMAIL_SENDER must be a valid email")
     .optional(),
+  // Master encryption key used to encrypt tenant private keys. Required in non-test envs.
   MASTER_ENCRYPTION_KEY: z
     .string()
-    .min(64, "MASTER_ENCRYPTION_KEY must be 32 bytes hex"),
+    .min(64, "MASTER_ENCRYPTION_KEY must be 32 bytes hex")
+    .optional(),
 });
 
 const parsed = envSchema.safeParse(process.env); //we dont use parse() here because if there is an error, it screams out loud unless we wrap a try catch block around it...safeParse() returns a plain object indicating inside whether the validation succeeded or not
@@ -55,4 +57,36 @@ if (!parsed.success) {
   process.exit(1); //process ll stop with a return message indicating that it failed, resulting in no zombie processes and also telling CI/CD pipelines that build is failed.
 }
 
-export const env = parsed.data;
+// Enforce MASTER_ENCRYPTION_KEY presence outside of tests, and provide a test default.
+const data = parsed.data as Record<string, unknown>;
+if (!data.MASTER_ENCRYPTION_KEY) {
+  if (data.NODE_ENV !== "test") {
+    console.error("Invalid environment variables:");
+    console.error(
+      "  MASTER_ENCRYPTION_KEY: MASTER_ENCRYPTION_KEY is required in non-test environments"
+    );
+    process.exit(1);
+  }
+
+  // For tests, provide a deterministic dummy 32-byte hex key (64 hex chars).
+  data.MASTER_ENCRYPTION_KEY = "0".repeat(64);
+}
+
+export const env = data as {
+  DATABASE_URL: string;
+  DATABASE_APP_URL: string;
+  REDIS_URL: string;
+  PORT: number;
+  NODE_ENV: "development" | "test" | "production";
+  JWT_ACCESS_EXPIRY: string;
+  JWT_REFRESH_EXPIRY: string;
+  MFA_OTP_EXPIRY_MINUTES: number;
+  ARGON2_MEMORY_COST: number;
+  ARGON2_TIME_COST: number;
+  HIBP_TIMEOUT_MS: number;
+  GMAIL_CLIENT_ID?: string;
+  GMAIL_CLIENT_SECRET?: string;
+  GMAIL_REFRESH_TOKEN?: string;
+  GMAIL_SENDER?: string;
+  MASTER_ENCRYPTION_KEY: string;
+};
