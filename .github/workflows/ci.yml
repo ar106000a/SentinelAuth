@@ -41,6 +41,10 @@ jobs:
       DATABASE_APP_URL: postgresql://app_user:app_user_password@localhost:5432/sentinelauth
       REDIS_URL: redis://localhost:6379
       NODE_ENV: test
+      GMAIL_CLIENT_ID: 499912776021-3v30nmidh3rt3cstcqrulfcl6i8gh738.apps.googleusercontent.com
+      GMAIL_CLIENT_SECRET: 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
+      GMAIL_REFRESH_TOKEN: 1//04Y5XOXALYRQMCgYIARAAGAQSNwF-L9IrWsd_MsXt_LL6QCx3T9aWH6aVut8U25e6cVM2ZxLwwf2voNM_gpxD1Exshh-tfhXMpTc
+      GMAIL_SENDER: ar1062000a@gmail.com
 
     steps:
       - name: Checkout code
