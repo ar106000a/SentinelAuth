@@ -75,6 +75,9 @@ jobs:
       - name: Verify app_user can authenticate
         run: PGPASSWORD=app_user_password psql -h localhost -U app_user -d sentinelauth -c "SELECT 1"
 
+      - name: Build dependencies
+        run: pnpm --filter @sentinelauth/api... build
+
       - name: Typecheck
         run: pnpm --filter @sentinelauth/api typecheck
 
