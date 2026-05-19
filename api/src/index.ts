@@ -4,7 +4,7 @@ import { serve } from "@hono/node-server";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { errorHandler } from "./middleware/error-handler";
-import { errorResponse } from "./utils/response";
+import { errorResponse, successResponse } from "./utils/response";
 import { AppError } from "./utils/error";
 import { rateLimitMiddleware } from "./middleware/rate-limit";
 import { requestId } from "./middleware/request-id";
@@ -12,6 +12,7 @@ import { DEFAULT_RATE_LIMIT, AUTH_RATE_LIMIT } from "./lib/rate-limiter";
 import { env } from "./config/env";
 import healthRoutes from "./routes/health";
 import tenants from "./routes/tenants";
+import { tenantContext } from "./middleware/tenant-context";
 
 const app = new Hono();
 
@@ -45,9 +46,21 @@ app.use("*", requestId);
 app.use("/api/*", rateLimitMiddleware(DEFAULT_RATE_LIMIT));
 app.use("/api/auth/*", rateLimitMiddleware(AUTH_RATE_LIMIT));
 
+//TenantContext Middleware
+app.use("/api/*", tenantContext);
+
 // 5. Routes
 app.route("/health", healthRoutes);
 app.route("/tenants", tenants);
+
+//Test Protected Route. ll be replaced later by real routes in upcoming days
+app.get("/api/ping", (c) => {
+  return successResponse(c, {
+    message: "Authenticated Successfully",
+    tenantId: c.get("tenantId"),
+    tenantName: c.get("tenantName"),
+  });
+});
 
 // Catch-all 404
 app.notFound((c) => {

@@ -4,6 +4,11 @@ import { adminDb } from "../db/index.js";
 import { tenants, otpTokens } from "../db/schema/index.js";
 import { inArray, eq } from "drizzle-orm";
 import { generateOtp } from "../utils/crypto.js";
+import type {
+  ApiErrorResponse,
+  ApiSuccessResponse,
+  TenantRegistrationResponse,
+} from "@sentinelauth/types";
 
 // Mock email sending — we don't want real emails during tests
 vi.mock("../services/email.service.js", () => ({
@@ -42,10 +47,8 @@ describe("POST /tenants/register", () => {
       })
     );
 
-    const body = (await res.json()) as {
-      success: boolean;
-      data: { message: string };
-    };
+    const body =
+      (await res.json()) as ApiSuccessResponse<TenantRegistrationResponse>;
 
     expect(res.status).toBe(201);
     expect(body.success).toBe(true);
@@ -157,15 +160,8 @@ describe("POST /tenants/verify-email", () => {
       })
     );
 
-    const body = (await res.json()) as {
-      success: boolean;
-      data: {
-        tenantId: string;
-        publicKey: string;
-        secretKey: string;
-        message: string;
-      };
-    };
+    const body =
+      (await res.json()) as ApiSuccessResponse<TenantRegistrationResponse>;
 
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);

@@ -3,11 +3,11 @@ import { tenants, users } from "../../db/schema/index.js";
 import { createHash, randomBytes } from "crypto";
 import { inArray } from "drizzle-orm";
 
-
 export async function seedTenant(
   overrides: {
     name?: string;
     adminEmail?: string;
+    isVerified?: boolean;
   } = {}
 ) {
   const rawSecret = randomBytes(32).toString("hex");
@@ -21,6 +21,8 @@ export async function seedTenant(
       passwordHash: "test_password_hash",
       publicKey: "test_public_key",
       secretKeyHash,
+      privateKeyEncrypted: "test_encrypted_private_key",
+      isVerified: overrides.isVerified ?? true,
     })
     .returning();
 

@@ -38,6 +38,9 @@ importers:
       '@hono/node-server':
         specifier: ^2.0.1
         version: 2.0.1(hono@4.12.16)
+      '@sentinelauth/types':
+        specifier: workspace:*
+        version: link:../packages/types
       argon2:
         specifier: ^0.44.0
         version: 0.44.0

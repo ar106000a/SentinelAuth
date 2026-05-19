@@ -60,7 +60,7 @@ describe("Full request lifecycle integration", () => {
 
   it("unknown routes return 404 with correct shape", async () => {
     const res = await app.fetch(
-      new Request("http://localhost/api/nonexistent")
+      new Request("http://localhost/ap/nonexistent")
     );
     expect(res.status).toBe(404);
     const body = (await res.json()) as {

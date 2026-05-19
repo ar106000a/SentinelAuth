@@ -18,6 +18,7 @@
     "gen:viz": "@liam-hq/cli erd build --format drizzle --input ./src/db/schema/index.ts"
   },
   "dependencies": {
+    "@sentinelauth/types": "workspace:*",
     "@hono/node-server": "^2.0.1",
     "argon2": "^0.44.0",
     "axios": "^1.16.1",

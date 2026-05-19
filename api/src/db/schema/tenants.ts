@@ -13,6 +13,7 @@ export const tenants = pgTable("tenants", {
       riskThreshold: number;
       failOpen: boolean;
     }>()
+    .notNull()
     .default({ riskThreshold: 0.7, failOpen: true }),
   isVerified: boolean("is_verified").notNull().default(false),
   privateKeyEncrypted: text("private_key_encrypted"),
