@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import app from "../index.js";
-import { adminDb } from "../db/index.js";
-import { tenants } from "../db/schema/index.js";
-import { inArray } from "drizzle-orm";
+// import { adminDb } from "../db/index.js";
+// import { tenants } from "../db/schema/index.js";
+// import { inArray } from "drizzle-orm";
 import { seedTenant, cleanupTenants } from "./utils/seed.js";
 
 const TEST_EMAILS = [
@@ -11,22 +11,21 @@ const TEST_EMAILS = [
 ];
 
 let verifiedSecret: string;
-let unverifiedTenantId: string;
+
 
 beforeAll(async () => {
   // Seed a verified tenant
-  const { tenant, rawSecret } = await seedTenant({
+  const { rawSecret } = await seedTenant({
     adminEmail: TEST_EMAILS[0],
     isVerified: true,
   });
   verifiedSecret = rawSecret;
 
   // Seed an unverified tenant
-  const { tenant: unverified } = await seedTenant({
+   await seedTenant({
     adminEmail: TEST_EMAILS[1],
     isVerified: false,
   });
-  unverifiedTenantId = unverified.id;
 });
 
 afterAll(async () => {

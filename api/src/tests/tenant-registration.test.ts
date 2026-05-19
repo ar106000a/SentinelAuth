@@ -5,7 +5,6 @@ import { tenants, otpTokens } from "../db/schema/index.js";
 import { inArray, eq } from "drizzle-orm";
 import { generateOtp } from "../utils/crypto.js";
 import type {
-  ApiErrorResponse,
   ApiSuccessResponse,
   TenantRegistrationResponse,
 } from "@sentinelauth/types";
