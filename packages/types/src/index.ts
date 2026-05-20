@@ -33,3 +33,10 @@ export interface ApiSuccessResponse<T> {
   data: T;
   timestamp: string;
 }
+export interface UserRegistrationResponse {
+  message: string;
+}
+
+export interface UserVerifyEmailResponse {
+  message: string;
+}
