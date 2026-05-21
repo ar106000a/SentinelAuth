@@ -16,7 +16,9 @@ export const tenants = pgTable("tenants", {
     .notNull()
     .default({ riskThreshold: 0.7, failOpen: true }),
   isVerified: boolean("is_verified").notNull().default(false),
-  privateKeyEncrypted: text("private_key_encrypted"),
+  privateKeyEncrypted: text("private_key_encrypted")
+    .notNull()
+    .default("sample"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

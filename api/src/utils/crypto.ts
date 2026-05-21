@@ -77,16 +77,39 @@ export function encryptPrivateKey(privateKey: string): string {
     cipher.update(privateKey, "utf8"),
     cipher.final(),
   ]);
-  return `${iv.toString("hex")}:${encrypted.toString("hex")}`;
+  const tag = cipher.getAuthTag();
+  const result = `${iv.toString("hex")}:${encrypted.toString("hex")}:${tag.toString("hex")}`;
+  console.log("Saving to DB:", result);
+  return result;
 }
 
 export function decryptPrivateKey(stored: string): string {
-  const [ivHex, encryptedHex] = stored.split(":");
+  if (!stored) {
+    throw new Error("Private key is missing or undefined");
+  }
+  const parts = stored.split(":");
+
+  // LOG THIS TO SEE WHAT'S ACTUALLY IN THE DB
+  if (parts.length !== 3) {
+    throw new Error(
+      `Invalid encrypted key format! Expected 3 parts, got ${parts.length}. String: ${stored}`
+    );
+  }
+  const [ivHex, encryptedHex, tagHex] = stored.split(":");
   const key = Buffer.from(env.MASTER_ENCRYPTION_KEY, "hex");
   const iv = Buffer.from(ivHex, "hex");
   const encrypted = Buffer.from(encryptedHex, "hex");
-  const decipher = createDecipheriv("aes-256-ocb", key, iv);
-  return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString(
-    "utf8"
-  );
+  const tag = Buffer.from(tagHex, "hex");
+  const decipher = createDecipheriv("aes-256-ocb", key, iv, {
+    authTagLength: 16,
+  });
+  decipher.setAuthTag(tag);
+  const decrypted = Buffer.concat([
+    decipher.update(encrypted),
+    decipher.final(),
+  ]).toString("utf8");
+  if (!decrypted.includes("-----BEGIN")) {
+    return `-----BEGIN RSA PRIVATE KEY-----\n${decrypted}\n-----END RSA PRIVATE KEY-----`;
+  }
+  return decrypted;
 }

@@ -40,3 +40,8 @@ export interface UserRegistrationResponse {
 export interface UserVerifyEmailResponse {
   message: string;
 }
+export interface LoginResponse {
+  accessToken: string;
+  mfaRequired: boolean;
+  userId: string;
+}

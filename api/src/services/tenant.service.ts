@@ -106,7 +106,7 @@ export async function verifyTenantEmail(
     .limit(1);
 
   if (!tenant) {
-    throw new NotFoundError("Tenant not found");
+    throw new NotFoundError("Tenant");
   }
   if (tenant.isVerified) {
     throw new ValidationError("Email already Verified");

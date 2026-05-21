@@ -93,7 +93,7 @@ export async function verifyUserEmail(
       .limit(1);
 
     if (!user) {
-      throw new NotFoundError("User not found.");
+      throw new NotFoundError("User");
     }
     if (user.isVerified) {
       throw new ValidationError("Email is already verified.");

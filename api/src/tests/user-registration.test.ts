@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import app from "../index.js";
 import { adminDb } from "../db/index.js";
-import { tenants, users, otpTokens } from "../db/schema/index.js";
-import { eq, and, inArray } from "drizzle-orm";
+import { users, otpTokens } from "../db/schema/index.js";
+import { eq, and } from "drizzle-orm";
 import { seedTenant, cleanupTenants } from "./utils/seed.js";
 import { generateOtp } from "../utils/crypto.js";
 
@@ -84,7 +84,7 @@ describe("POST /api/auth/register", () => {
 
   it("allows same email across different tenants", async () => {
     // Create a second tenant
-    const { tenant: tenant2, rawSecret: secret2 } = await seedTenant({
+    const { rawSecret: secret2 } = await seedTenant({
       adminEmail: "user-reg-tenant-2@sentineltest.com",
       isVerified: true,
     });

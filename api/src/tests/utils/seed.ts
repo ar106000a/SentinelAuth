@@ -1,6 +1,7 @@
 import { adminDb } from "../../db/index.js";
 import { tenants, users } from "../../db/schema/index.js";
 import { createHash, randomBytes } from "crypto";
+import { encryptPrivateKey, generateRSAKeyPair } from "../../utils/crypto.js";
 import { inArray } from "drizzle-orm";
 
 export async function seedTenant(
@@ -12,6 +13,8 @@ export async function seedTenant(
 ) {
   const rawSecret = randomBytes(32).toString("hex");
   const secretKeyHash = createHash("sha256").update(rawSecret).digest("hex");
+  const { privateKey } = generateRSAKeyPair();
+  const encryptedPrivateKey = encryptPrivateKey(privateKey);
 
   const [tenant] = await adminDb
     .insert(tenants)
@@ -21,7 +24,7 @@ export async function seedTenant(
       passwordHash: "test_password_hash",
       publicKey: "test_public_key",
       secretKeyHash,
-      privateKeyEncrypted: "test_encrypted_private_key",
+      privateKeyEncrypted: encryptedPrivateKey,
       isVerified: overrides.isVerified ?? true,
     })
     .returning();

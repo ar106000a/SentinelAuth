@@ -36,15 +36,13 @@ const envSchema = z.object({
     .string()
     .min(1, "GMAIL_REFRESH_TOKEN is required")
     .optional(),
-  GMAIL_SENDER: z
-    .string()
-    .email("GMAIL_SENDER must be a valid email")
-    .optional(),
+  GMAIL_SENDER: z.email("GMAIL_SENDER must be a valid email").optional(),
   // Master encryption key used to encrypt tenant private keys. Required in non-test envs.
   MASTER_ENCRYPTION_KEY: z
     .string()
     .min(64, "MASTER_ENCRYPTION_KEY must be 32 bytes hex")
     .optional(),
+  JWT_ISSUER: z.string().default("sentinelauth"),
 });
 
 const parsed = envSchema.safeParse(process.env); //we dont use parse() here because if there is an error, it screams out loud unless we wrap a try catch block around it...safeParse() returns a plain object indicating inside whether the validation succeeded or not
@@ -89,4 +87,5 @@ export const env = data as {
   GMAIL_REFRESH_TOKEN?: string;
   GMAIL_SENDER?: string;
   MASTER_ENCRYPTION_KEY: string;
+  JWT_ISSUER: string;
 };
