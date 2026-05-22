@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+export const MIN_PASSWORD_LENGTH = 12;
 export const registerTenantSchema = z.object({
   name: z
     .string()
@@ -9,7 +10,7 @@ export const registerTenantSchema = z.object({
   adminEmail: z.email("Must be a valid Email Address").toLowerCase().trim(),
   password: z
     .string()
-    .min(12, "Password must be at least 12 characters long")
+    .min(MIN_PASSWORD_LENGTH, "Password must be at least 12 characters long")
     .max(128, "Password must be under 128 characters"),
 });
 export type RegisterTenantInput = z.infer<typeof registerTenantSchema>;

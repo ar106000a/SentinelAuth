@@ -46,6 +46,8 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z
     .string()
     .min(64, "JWT_REFRESH_SECRET must be at least 64 chars"),
+  COOKIE_SECRET: z.string().min(64, "COOKIE_SECRET must be at least 64 chars"),
+  COOKIE_DOMAIN: z.string().default("localhost"),
 });
 
 const parsed = envSchema.safeParse(process.env); //we dont use parse() here because if there is an error, it screams out loud unless we wrap a try catch block around it...safeParse() returns a plain object indicating inside whether the validation succeeded or not
@@ -92,4 +94,6 @@ export const env = data as {
   MASTER_ENCRYPTION_KEY: string;
   JWT_ISSUER: string;
   JWT_REFRESH_SECRET: string;
+  COOKIE_SECRET: string;
+  COOKIE_DOMAIN: string;
 };
