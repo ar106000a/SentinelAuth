@@ -79,7 +79,7 @@ export function encryptPrivateKey(privateKey: string): string {
   ]);
   const tag = cipher.getAuthTag();
   const result = `${iv.toString("hex")}:${encrypted.toString("hex")}:${tag.toString("hex")}`;
-  console.log("Saving to DB:", result);
+  // console.log("Saving to DB:", result);
   return result;
 }
 
@@ -109,7 +109,8 @@ export function decryptPrivateKey(stored: string): string {
     decipher.final(),
   ]).toString("utf8");
   if (!decrypted.includes("-----BEGIN")) {
-    return `-----BEGIN RSA PRIVATE KEY-----\n${decrypted}\n-----END RSA PRIVATE KEY-----`;
+    // return `-----BEGIN RSA PRIVATE KEY-----\n${decrypted}\n-----END RSA PRIVATE KEY-----`;
+    throw new Error("Decrypted private key has invalid format");
   }
   return decrypted;
 }

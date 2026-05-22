@@ -43,6 +43,9 @@ const envSchema = z.object({
     .min(64, "MASTER_ENCRYPTION_KEY must be 32 bytes hex")
     .optional(),
   JWT_ISSUER: z.string().default("sentinelauth"),
+  JWT_REFRESH_SECRET: z
+    .string()
+    .min(64, "JWT_REFRESH_SECRET must be at least 64 chars"),
 });
 
 const parsed = envSchema.safeParse(process.env); //we dont use parse() here because if there is an error, it screams out loud unless we wrap a try catch block around it...safeParse() returns a plain object indicating inside whether the validation succeeded or not
@@ -88,4 +91,5 @@ export const env = data as {
   GMAIL_SENDER?: string;
   MASTER_ENCRYPTION_KEY: string;
   JWT_ISSUER: string;
+  JWT_REFRESH_SECRET: string;
 };

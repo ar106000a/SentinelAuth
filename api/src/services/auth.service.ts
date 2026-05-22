@@ -11,7 +11,12 @@ import { PoolClient } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "../db/schema/index";
 import { verifyPassword } from "../utils/crypto";
-import { hashToken, signJwt } from "../utils/jwt";
+import {
+  hashToken,
+  signJwt,
+  signRefreshToken,
+  verifyRefreshToken,
+} from "../utils/jwt";
 import { env } from "../config/env";
 
 export interface LoginInput {
@@ -21,6 +26,7 @@ export interface LoginInput {
 }
 export interface LoginOutput {
   accessToken: string;
+  refreshToken: string;
   mfaRequired: false;
   userId: string;
 }
@@ -28,6 +34,7 @@ export interface LoginOutput {
 export async function loginUser(input: LoginInput): Promise<LoginOutput> {
   const { tenantId, email, password } = input;
 
+  //checking if the tenant exists or not
   const [tenant] = await adminDb
     .select({
       privateKeyEncrypted: tenants.privateKeyEncrypted,
@@ -42,6 +49,7 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
   }
 
   let accessToken: string;
+  let refreshToken: string;
   let userId: string;
 
   await withTenant(tenantId, async (client: PoolClient) => {
@@ -81,12 +89,21 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
     const tokenHash = hashToken(accessToken);
     const expiresAt = new Date(Date.now() + parseExpiry(env.JWT_ACCESS_EXPIRY));
 
-    await tenantDb.insert(schema.sessions).values({
+    const [session] = await tenantDb
+      .insert(schema.sessions)
+      .values({
+        tenantId,
+        userId: user.id,
+        tokenHash,
+        isRevoked: false,
+        expiresAt,
+      })
+      .returning({ id: schema.sessions.id });
+
+    refreshToken = signRefreshToken({
+      sub: user.id,
       tenantId,
-      userId: user.id,
-      tokenHash,
-      isRevoked: false,
-      expiresAt,
+      sessionId: session.id,
     });
 
     await tenantDb
@@ -95,9 +112,14 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
       .where(eq(schema.users.id, user.id));
 
     userId = user.id;
+    // console.log("Refresh token here in the response body: ", refreshToken);
   });
-
-  return { accessToken: accessToken!, mfaRequired: false, userId: userId! };
+  return {
+    accessToken: accessToken!,
+    refreshToken: refreshToken!,
+    mfaRequired: false,
+    userId: userId!,
+  };
 }
 
 function parseExpiry(expiry: string): number {
@@ -114,4 +136,116 @@ function parseExpiry(expiry: string): number {
     default:
       return 15 * 60 * 1000; // default 15 min
   }
+}
+
+export async function logoutUser(
+  tenantId: string,
+  userId: string,
+  token: string
+): Promise<void> {
+  const tokenHash = hashToken(token);
+
+  await withTenant(tenantId, async (client: PoolClient) => {
+    const tenantDb = drizzle(client, { schema });
+
+    await tenantDb
+      .update(schema.sessions)
+      .set({ isRevoked: true })
+      .where(
+        and(
+          eq(schema.sessions.tokenHash, tokenHash),
+          eq(schema.sessions.tenantId, tenantId),
+          eq(schema.sessions.userId, userId)
+        )
+      );
+  });
+}
+export interface RefreshOutput {
+  accessToken: string;
+}
+
+export async function refreshAccessToken(
+  tenantId: string,
+  refreshToken: string
+): Promise<RefreshOutput> {
+  const payload = verifyRefreshToken(refreshToken);
+  if (payload.tenantId !== tenantId) {
+    throw new AuthenticationError("Token tenant mismatch");
+  }
+
+  const [tenant] = await adminDb
+    .select({ privateKeyEncrypted: tenants.privateKeyEncrypted })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+    .limit(1);
+
+  if (!tenant?.privateKeyEncrypted) {
+    throw new AuthenticationError("Tenant configuration error");
+  }
+  let accessToken: string;
+  await withTenant(tenantId, async (client: PoolClient) => {
+    const tenantDb = drizzle(client, { schema });
+
+    const [session] = await tenantDb
+      .select()
+      .from(schema.sessions)
+      .where(
+        and(
+          eq(schema.sessions.tenantId, tenantId),
+          eq(schema.sessions.userId, payload.sub),
+          eq(schema.sessions.id, payload.sessionId)
+        )
+      )
+      .limit(1);
+
+    if (!session || session.isRevoked) {
+      throw new AuthenticationError("Session is invalid or has been revoked");
+    }
+
+    const [user] = await tenantDb
+      .select()
+      .from(schema.users)
+      .where(
+        and(
+          eq(schema.users.id, payload.sub),
+          eq(schema.users.tenantId, tenantId)
+        )
+      )
+      .limit(1);
+
+    if (!user) {
+      throw new AuthenticationError("User not found");
+    }
+
+    accessToken = signJwt(
+      {
+        sub: user.id,
+        tenantId: user.tenantId,
+        email: user.email,
+        isVerified: user.isVerified,
+      },
+      tenant.privateKeyEncrypted
+    );
+
+    const newTokenHash = hashToken(accessToken);
+    const newExpiresAt = new Date(
+      Date.now() + parseExpiry(env.JWT_ACCESS_EXPIRY)
+    );
+
+    await tenantDb
+      .update(schema.sessions)
+      .set({
+        tokenHash: newTokenHash,
+        expiresAt: newExpiresAt,
+      })
+      .where(
+        and(
+          eq(schema.sessions.id, session.id),
+          eq(schema.sessions.tenantId, tenantId)
+        )
+      );
+    // console.log("✅ Updated tokenHash to:", newTokenHash);
+    // console.log("✅ For sessionId:", session.id);
+  });
+  return { accessToken: accessToken! };
 }

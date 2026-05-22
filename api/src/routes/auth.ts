@@ -6,8 +6,13 @@ import {
   loginUserSchema,
 } from "../validators/user.validator";
 import { registerUser, verifyUserEmail } from "../services/user.service";
-import { loginUser } from "../services/auth.service";
+import {
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+} from "../services/auth.service";
 import { successResponse } from "../utils/response";
+import { userAuth } from "../middleware/user-auth";
 
 const auth = new Hono();
 auth.post("/register", async (c) => {
@@ -72,6 +77,32 @@ auth.post("/login", async (c) => {
     email: parsed.data.email,
     password: parsed.data.password,
   });
+  return successResponse(c, result, 200);
+});
+
+auth.post("/logout", userAuth, async (c) => {
+  const tenantId = c.get("tenantId");
+  const userId = c.get("userId");
+  const token = c.req.header("X-User-Token");
+  if (!token) {
+    throw new ValidationError("Token absent with request");
+  }
+
+  await logoutUser(tenantId, userId!, token);
+  return successResponse(c, { message: "Logged out successfully!" }, 200);
+});
+
+auth.post("/refresh", async (c) => {
+  const tenantId = c.get("tenantId");
+
+  const body = await c.req.json().catch(() => {
+    throw new ValidationError("Request body must be a valid json");
+  });
+
+  if (!body.refreshToken || typeof body.refreshToken !== "string") {
+    throw new ValidationError("refreshTOken is required");
+  }
+  const result = await refreshAccessToken(tenantId, body.refreshToken);
   return successResponse(c, result, 200);
 });
 export default auth;

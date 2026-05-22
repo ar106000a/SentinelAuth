@@ -13,7 +13,7 @@ export async function seedTenant(
 ) {
   const rawSecret = randomBytes(32).toString("hex");
   const secretKeyHash = createHash("sha256").update(rawSecret).digest("hex");
-  const { privateKey } = generateRSAKeyPair();
+  const { publicKey, privateKey } = generateRSAKeyPair();
   const encryptedPrivateKey = encryptPrivateKey(privateKey);
 
   const [tenant] = await adminDb
@@ -22,7 +22,7 @@ export async function seedTenant(
       name: overrides.name ?? "Test Tenant",
       adminEmail: overrides.adminEmail ?? `admin-${Date.now()}@test.com`,
       passwordHash: "test_password_hash",
-      publicKey: "test_public_key",
+      publicKey: publicKey,
       secretKeyHash,
       privateKeyEncrypted: encryptedPrivateKey,
       isVerified: overrides.isVerified ?? true,

@@ -42,6 +42,11 @@ export interface UserVerifyEmailResponse {
 }
 export interface LoginResponse {
   accessToken: string;
+  refreshToken: string;
   mfaRequired: boolean;
   userId: string;
+}
+
+export interface RefreshResponse {
+  accessToken: string;
 }
