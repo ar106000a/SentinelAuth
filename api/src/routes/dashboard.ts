@@ -1,0 +1,74 @@
+import { Hono } from "hono";
+import z from "zod";
+import { ValidationError } from "../utils/error";
+import { loginTenant, logoutTenant } from "../services/tenant-auth.service";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
+import { env } from "../config/env";
+import { successResponse } from "../utils/response";
+import { dashboardAuth } from "../middleware/dashboard-auth";
+
+const dashboard = new Hono();
+
+const loginSchema = z.object({
+  adminEmail: z.email().toLowerCase().trim(),
+  password: z.string().min(1, "Password required"),
+});
+dashboard.post("/login", async (c) => {
+  const body = await c.req.json().catch(() => {
+    throw new ValidationError("Request body must be valid json");
+  });
+
+  const parsed = loginSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ValidationError(
+      parsed.error.issues.map((i) => i.message).join(", ")
+    );
+  }
+  const result = await loginTenant(parsed.data);
+
+  setCookie(c, "dashboard_session", result.rawToken, {
+    httpOnly: true,
+    secure: env.NODE_ENV === "production",
+    sameSite: "Strict",
+    maxAge: 24 * 60 * 60,
+    path: "/",
+    domain: env.COOKIE_DOMAIN,
+  });
+  return successResponse(
+    c,
+    {
+      tenantId: result.tenantId,
+      tenantName: result.tenantName,
+      message: "Logged in successfully",
+    },
+    200
+  );
+});
+
+dashboard.post("logout", dashboardAuth, async (c) => {
+  const rawToken = getCookie(c, "dashboard_session");
+
+  if (rawToken) {
+    await logoutTenant(rawToken);
+  }
+  deleteCookie(c, "dashboard_session", {
+    path: "/",
+    domain: env.COOKIE_DOMAIN,
+  });
+  return successResponse(c, { message: "Logged out successfully" }, 200);
+});
+dashboard.get("/me", dashboardAuth, async (c) => {
+  console.log("tenantSettings from context:", c.get("tenantSettings"));
+  console.log("tenantId from context:", c.get("tenantId"));
+  console.log("tenantName from context:", c.get("tenantName"));
+  return successResponse(
+    c,
+    {
+      tenantId: c.get("tenantId"),
+      tenantName: c.get("tenantName"),
+      settings: c.get("tenantSettings"),
+    },
+    200
+  );
+});
+export default dashboard;

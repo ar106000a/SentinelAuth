@@ -50,3 +50,17 @@ export interface LoginResponse {
 export interface RefreshResponse {
   accessToken: string;
 }
+export interface TenantLoginResponse {
+  tenantId: string;
+  tenantName: string;
+  message: string;
+}
+
+export interface DashboardMeResponse {
+  tenantId: string;
+  tenantName: string;
+  settings: {
+    riskThreshold: number;
+    failOpen: boolean;
+  };
+}

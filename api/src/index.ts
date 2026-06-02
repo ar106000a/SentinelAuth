@@ -12,6 +12,7 @@ import { DEFAULT_RATE_LIMIT, AUTH_RATE_LIMIT } from "./lib/rate-limiter";
 import { env } from "./config/env";
 import healthRoutes from "./routes/health";
 import tenantRoutes from "./routes/tenants";
+import dashboardRoutes from "./routes/dashboard";
 import { tenantContext } from "./middleware/tenant-context";
 import authRoutes from "./routes/auth";
 
@@ -54,6 +55,7 @@ app.use("/api/*", tenantContext);
 app.route("/health", healthRoutes);
 app.route("/tenants", tenantRoutes);
 app.route("/api/auth", authRoutes);
+app.route("/dashboard", dashboardRoutes);
 
 //Test Protected Route. ll be replaced later by real routes in upcoming days
 app.get("/api/ping", (c) => {
