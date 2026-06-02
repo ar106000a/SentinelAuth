@@ -46,6 +46,7 @@ jobs:
       GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
       GMAIL_SENDER: ar1062000a@gmail.com
       JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+      COOKIE_SECRET: ${{ secrets.COOKIE_SECRET}}
 
     steps:
       - name: Checkout code
