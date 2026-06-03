@@ -6,6 +6,11 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { env } from "../config/env";
 import { successResponse } from "../utils/response";
 import { dashboardAuth } from "../middleware/dashboard-auth";
+import {
+  getTenantSettings,
+  updateTenantSettings,
+} from "../services/tenant-settings.service";
+import { updateSettingsSchema } from "../validators/settings.validator";
 
 const dashboard = new Hono();
 
@@ -70,5 +75,26 @@ dashboard.get("/me", dashboardAuth, async (c) => {
     },
     200
   );
+});
+
+dashboard.get("/settings", dashboardAuth, async (c) => {
+  const tenantId = c.get("tenantId");
+  const settings = await getTenantSettings(tenantId);
+  return successResponse(c, settings, 200);
+});
+
+dashboard.put("/settings", dashboardAuth, async (c) => {
+  const tenantId = c.get("tenantId");
+  const body = await c.req.json().catch(() => {
+    throw new ValidationError("Request body must be a valid JSON");
+  });
+  const parsed = updateSettingsSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ValidationError(
+      parsed.error.issues.map((i) => i.message).join(", ")
+    );
+  }
+  const updated = await updateTenantSettings(tenantId, parsed.data);
+  return successResponse(c, updated, 200);
 });
 export default dashboard;

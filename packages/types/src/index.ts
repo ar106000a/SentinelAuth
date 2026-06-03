@@ -64,3 +64,7 @@ export interface DashboardMeResponse {
     failOpen: boolean;
   };
 }
+export interface TenantSettings {
+  riskThreshold: number;
+  failOpen: boolean;
+}
