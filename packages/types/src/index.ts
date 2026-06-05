@@ -68,3 +68,8 @@ export interface TenantSettings {
   riskThreshold: number;
   failOpen: boolean;
 }
+export interface KeyRotationResponse {
+  publicKey: string;
+  secretKey: string;
+  message: string;
+}

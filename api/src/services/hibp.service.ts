@@ -22,8 +22,8 @@ export async function isPasswordPwned(password: string): Promise<boolean> {
       return hashSuffix.trim().toUpperCase() === suffix;
     });
     return found;
-  } catch {
-    console.warn("HIBP check failed - proceeding with registration");
+  } catch (err: unknown) {
+    console.warn("HIBP check failed - proceeding with registration", err);
     return false;
   }
 }

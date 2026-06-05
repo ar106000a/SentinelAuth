@@ -24,7 +24,7 @@ const envSchema = z.object({
   MFA_OTP_EXPIRY_MINUTES: z.coerce.number().default(10),
   ARGON2_MEMORY_COST: z.coerce.number().default(65536),
   ARGON2_TIME_COST: z.coerce.number().default(3),
-  HIBP_TIMEOUT_MS: z.coerce.number().default(2000),
+  HIBP_TIMEOUT_MS: z.coerce.number().default(5000),
   // Gmail
   // Gmail credentials. Optional in test/CI; provide real values in prod/dev.
   GMAIL_CLIENT_ID: z.string().min(1, "GMAIL_CLIENT_ID is required").optional(),

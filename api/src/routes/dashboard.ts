@@ -11,6 +11,7 @@ import {
   updateTenantSettings,
 } from "../services/tenant-settings.service";
 import { updateSettingsSchema } from "../validators/settings.validator";
+import { RotateTenantKeys } from "../services/key-rotation.service";
 
 const dashboard = new Hono();
 
@@ -96,5 +97,13 @@ dashboard.put("/settings", dashboardAuth, async (c) => {
   }
   const updated = await updateTenantSettings(tenantId, parsed.data);
   return successResponse(c, updated, 200);
+});
+
+dashboard.post("/keys/rotate", dashboardAuth, async (c) => {
+  const tenantId = c.get("tenantId");
+  const ip = c.header("x-forwarded-for") ?? c.header("x-real-ip") ?? "unknown";
+
+  const result = await RotateTenantKeys(tenantId, ip);
+  return successResponse(c, result, 200);
 });
 export default dashboard;
