@@ -14,6 +14,8 @@ import { updateSettingsSchema } from "../validators/settings.validator";
 import { RotateTenantKeys } from "../services/key-rotation.service";
 import { getAuditLogs } from "../services/audit-log.service";
 import { auditLogQuerySchema } from "../validators/audit-log.validator";
+import { gdprDeleteUser, listTenantUsers } from "../services/user-management.service";
+import { userListQuerySchema } from "../validators/user-management.validator";
 
 const dashboard = new Hono();
 
@@ -121,6 +123,34 @@ dashboard.get("/audit-logs", dashboardAuth, async (c) => {
   }
 
   const result = await getAuditLogs(tenantId, parsed.data);
+  return successResponse(c, result, 200);
+});
+
+dashboard.get("/users", dashboardAuth, async (c) => {
+  const tenantId = c.get("tenantId");
+
+  const query = c.req.query();
+  const parsed = userListQuerySchema.safeParse(query);
+
+  if (!parsed.success) {
+    throw new ValidationError(
+      parsed.error.issues.map((i) => i.message).join(", ")
+    );
+  }
+
+  const result = await listTenantUsers(tenantId, parsed.data);
+  return successResponse(c, result, 200);
+});
+
+dashboard.delete("/users/:id", dashboardAuth, async (c) => {
+  const tenantId = c.get("tenantId");
+  const userId = c.req.param("id");
+
+  if (!userId) {
+    throw new ValidationError("User ID is required");
+  }
+
+  const result = await gdprDeleteUser(tenantId, userId);
   return successResponse(c, result, 200);
 });
 export default dashboard;

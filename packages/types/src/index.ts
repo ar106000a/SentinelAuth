@@ -95,3 +95,25 @@ export interface AuditLogPage {
   limit: number;
   totalPages: number;
 }
+export interface UserListEntry {
+  id: string;
+  email: string;
+  isVerified: boolean;
+  mfaEnabled: boolean;
+  lastLoginAt: string | null;
+  lastLoginIp: string | null;
+  createdAt: string;
+}
+
+export interface UserListPage {
+  entries: UserListEntry[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface GdprDeleteResult {
+  userId: string;
+  message: string;
+}
