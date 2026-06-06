@@ -73,3 +73,25 @@ export interface KeyRotationResponse {
   secretKey: string;
   message: string;
 }
+export interface AuditLogEntry {
+  id: string;
+  eventType: string;
+  riskScore: number | null;
+  mfaTriggered: boolean;
+  ipAddress: string | null;
+  userAgent: string | null;
+  fingerprint: string | null;
+  geoLat: string | null;
+  geoLng: string | null;
+  features: Record<string, number> | null;
+  userEmail: string | null;
+  createdAt: string;
+}
+
+export interface AuditLogPage {
+  entries: AuditLogEntry[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}

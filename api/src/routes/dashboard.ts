@@ -12,6 +12,8 @@ import {
 } from "../services/tenant-settings.service";
 import { updateSettingsSchema } from "../validators/settings.validator";
 import { RotateTenantKeys } from "../services/key-rotation.service";
+import { getAuditLogs } from "../services/audit-log.service";
+import { auditLogQuerySchema } from "../validators/audit-log.validator";
 
 const dashboard = new Hono();
 
@@ -104,6 +106,21 @@ dashboard.post("/keys/rotate", dashboardAuth, async (c) => {
   const ip = c.header("x-forwarded-for") ?? c.header("x-real-ip") ?? "unknown";
 
   const result = await RotateTenantKeys(tenantId, ip);
+  return successResponse(c, result, 200);
+});
+dashboard.get("/audit-logs", dashboardAuth, async (c) => {
+  const tenantId = c.get("tenantId");
+
+  const query = c.req.query();
+  const parsed = auditLogQuerySchema.safeParse(query);
+
+  if (!parsed.success) {
+    throw new ValidationError(
+      parsed.error.issues.map((i) => i.message).join(", ")
+    );
+  }
+
+  const result = await getAuditLogs(tenantId, parsed.data);
   return successResponse(c, result, 200);
 });
 export default dashboard;

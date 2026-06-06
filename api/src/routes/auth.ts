@@ -1,5 +1,9 @@
 import { Hono } from "hono";
-import { ValidationError } from "../utils/error";
+import {
+  AuthenticationError,
+  ForbiddenError,
+  ValidationError,
+} from "../utils/error";
 import {
   registerUserSchema,
   verifyUserEmailSchema,
@@ -7,6 +11,7 @@ import {
 } from "../validators/user.validator";
 import { registerUser, verifyUserEmail } from "../services/user.service";
 import {
+  logFailedLogin,
   loginUser,
   logoutUser,
   refreshAccessToken,
@@ -71,13 +76,23 @@ auth.post("/login", async (c) => {
       parsed.error.issues.map((i) => i.message).join(", ")
     );
   }
-
-  const result = await loginUser({
-    tenantId,
-    email: parsed.data.email,
-    password: parsed.data.password,
-  });
-  return successResponse(c, result, 200);
+  try {
+    const result = await loginUser({
+      tenantId,
+      email: parsed.data.email,
+      password: parsed.data.password,
+    });
+    return successResponse(c, result, 200);
+  } catch (error) {
+    //log failed attempt before re-throwing
+    if (
+      error instanceof AuthenticationError ||
+      error instanceof ForbiddenError
+    ) {
+      await logFailedLogin(tenantId);
+    }
+    throw error;
+  }
 });
 
 auth.post("/logout", userAuth, async (c) => {

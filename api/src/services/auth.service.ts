@@ -113,6 +113,17 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
 
     userId = user.id;
     // console.log("Refresh token here in the response body: ", refreshToken);
+    // Log successful login
+    await tenantDb.insert(schema.riskLogs).values({
+      tenantId,
+      userId: user.id,
+      eventType: "login_success",
+      riskScore: null, // Phase 3 will populate this
+      mfaTriggered: false, // Phase 3 will set this dynamically
+      ipAddress: null, // Phase 3 will wire this in
+      userAgent: null, // Phase 3 will wire this in
+      fingerprint: null, // Phase 3 will wire this in
+    });
   });
   return {
     accessToken: accessToken!,
@@ -248,4 +259,18 @@ export async function refreshAccessToken(
     // console.log("✅ For sessionId:", session.id);
   });
   return { accessToken: accessToken! };
+}
+
+export async function logFailedLogin(
+  tenantId: string,
+  userId?: string
+): Promise<void> {
+  await adminDb.insert(schema.riskLogs).values({
+    tenantId,
+    userId: userId ?? null,
+    eventType: "login_failed",
+    riskScore: null,
+    mfaTriggered: false,
+    ipAddress: null,
+  });
 }
