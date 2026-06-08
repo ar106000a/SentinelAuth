@@ -1,9 +1,20 @@
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { adminDb } from "../db";
-import { tenants, tenantSessions } from "../db/schema";
-import { AuthenticationError, ForbiddenError } from "../utils/error";
-import { sha256, verifyPassword } from "../utils/crypto";
+import { otpTokens, riskLogs, tenants, tenantSessions } from "../db/schema";
+import {
+  AuthenticationError,
+  ForbiddenError,
+  ValidationError,
+} from "../utils/error";
+import {
+  generateOtp,
+  hashPassword,
+  sha256,
+  verifyPassword,
+} from "../utils/crypto";
 import { randomBytes } from "crypto";
+import { sendOtpEmail } from "./email.service";
+import { isPasswordPwned } from "./hibp.service";
 
 export interface TenantLoginInput {
   adminEmail: string;
@@ -125,4 +136,117 @@ export async function validateDashboardSession(
     tenantName: tenant.name,
     settings: tenant.settings as { riskThreshold: number; failOpen: boolean },
   };
+}
+
+export async function tenantForgotPassword(adminEmail: string): Promise<void> {
+  const [tenant] = await adminDb
+    .select({ id: tenants.id, isVerified: tenants.isVerified })
+    .from(tenants)
+    .where(eq(tenants.adminEmail, adminEmail))
+    .limit(1);
+
+  if (!tenant || !tenant.isVerified) {
+    return;
+  }
+  await adminDb
+    .update(otpTokens)
+    .set({ usedAt: new Date() })
+    .where(
+      and(
+        eq(otpTokens.tenantId, tenant.id),
+        eq(otpTokens.type, "password_reset"),
+        sql`used_at IS null`
+      )
+    );
+
+  const { rawOtp, otpHash } = generateOtp();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+  await adminDb.insert(otpTokens).values({
+    tenantId: tenant.id,
+    userId: null,
+    tokenHash: otpHash,
+    type: "password_reset",
+    expiresAt,
+  });
+
+  await sendOtpEmail(adminEmail, rawOtp, "password_reset");
+}
+export interface TenantResetPasswordInput {
+  adminEmail: string;
+  otp: string;
+  newPassword: string;
+}
+
+export async function tenantResetPassword(
+  input: TenantResetPasswordInput,
+  ipAddress?: string
+): Promise<void> {
+  const { adminEmail, otp, newPassword } = input;
+  const [tenant] = await adminDb
+    .select({ id: tenants.id, isVerified: tenants.isVerified })
+    .from(tenants)
+    .where(eq(tenants.adminEmail, adminEmail))
+    .limit(1);
+
+  if (!tenant || !tenant.isVerified) {
+    throw new AuthenticationError("Expired or invalid reset code"); //😉
+  }
+
+  const [token] = await adminDb
+    .select()
+    .from(otpTokens)
+    .where(
+      and(
+        eq(otpTokens.tenantId, tenant.id),
+        eq(otpTokens.type, "password_reset"),
+        sql`used_at IS NULL`,
+        sql`expires_at > NOW()`
+      )
+    )
+    .limit(1);
+
+  if (!token) {
+    throw new AuthenticationError("Invalid or expired reset code");
+  }
+
+  const otpHash = sha256(otp);
+  if (token.tokenHash !== otpHash) {
+    throw new AuthenticationError("Invalid or expired reset code");
+  }
+  // 4. HIBP check on new password
+  const isPwned = await isPasswordPwned(newPassword);
+  if (isPwned) {
+    throw new ValidationError(
+      "This password has appeared in a known data breach. Please choose a different password."
+    );
+  }
+
+  // 5. Hash new password
+  const passwordHash = await hashPassword(newPassword);
+
+  // 6. Mark token used
+  await adminDb
+    .update(otpTokens)
+    .set({ usedAt: new Date() })
+    .where(eq(otpTokens.id, token.id));
+
+  // 7. Update password
+  await adminDb
+    .update(tenants)
+    .set({ passwordHash, updatedAt: new Date() })
+    .where(eq(tenants.id, tenant.id));
+
+  // 8. Invalidate all dashboard sessions — password changed
+  await adminDb
+    .delete(tenantSessions)
+    .where(eq(tenantSessions.tenantId, tenant.id));
+
+  await adminDb.insert(riskLogs).values({
+    tenantId: tenant.id,
+    userId: null,
+    eventType: "tenant_password_reset",
+    mfaTriggered: false,
+    ipAddress: ipAddress ?? null, // wire in from route later
+  });
 }

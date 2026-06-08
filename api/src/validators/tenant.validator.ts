@@ -24,3 +24,23 @@ export const verifyEmailSchema = z.object({
 });
 
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
+
+export const tenantForgotPasswordSchema = z.object({
+  adminEmail: z.email().toLowerCase().trim(),
+});
+
+export const tenantResetPasswordSchema = z.object({
+  adminEmail: z.email().toLowerCase().trim(),
+  otp: z
+    .string()
+    .length(6, "OTP must be exactly 6 digits")
+    .regex(/^\d+$/, "OTP must be numeric"),
+  newPassword: z.string().min(12).max(128),
+});
+
+export type TenantForgotPasswordInput = z.infer<
+  typeof tenantForgotPasswordSchema
+>;
+export type TenantResetPasswordInput = z.infer<
+  typeof tenantResetPasswordSchema
+>;

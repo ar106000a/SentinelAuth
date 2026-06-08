@@ -117,3 +117,10 @@ export interface GdprDeleteResult {
   userId: string;
   message: string;
 }
+export interface ForgotPasswordResponse {
+  message: string;
+}
+
+export interface ResetPasswordResponse {
+  message: string;
+}
