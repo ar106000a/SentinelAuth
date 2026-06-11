@@ -8,8 +8,15 @@ import {
   registerUserSchema,
   verifyUserEmailSchema,
   loginUserSchema,
+  userForgotPasswordSchema,
+  userResetPasswordSchema,
 } from "../validators/user.validator";
-import { registerUser, verifyUserEmail } from "../services/user.service";
+import {
+  registerUser,
+  userForgotPassword,
+  userResetPassword,
+  verifyUserEmail,
+} from "../services/user.service";
 import {
   logFailedLogin,
   loginUser,
@@ -119,5 +126,66 @@ auth.post("/refresh", async (c) => {
   }
   const result = await refreshAccessToken(tenantId, body.refreshToken);
   return successResponse(c, result, 200);
+});
+
+auth.post("/forgot-password", async (c) => {
+  const tenantId = c.get("tenantId");
+  const ip =
+    c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "unknown";
+
+  const body = await c.req.json().catch(() => {
+    throw new ValidationError("Request body must be valid JSON");
+  });
+
+  const parsed = userForgotPasswordSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ValidationError(
+      parsed.error.issues.map((i) => i.message).join(", ")
+    );
+  }
+
+  await userForgotPassword(tenantId, parsed.data.email, ip);
+
+  return successResponse(
+    c,
+    {
+      message: "If this email is registered, a reset code has been sent.",
+    },
+    200
+  );
+});
+
+auth.post("/reset-password", async (c) => {
+  const tenantId = c.get("tenantId");
+  const ip =
+    c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "unknown";
+
+  const body = await c.req.json().catch(() => {
+    throw new ValidationError("Request body must be valid JSON");
+  });
+
+  const parsed = userResetPasswordSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ValidationError(
+      parsed.error.issues.map((i) => i.message).join(", ")
+    );
+  }
+
+  await userResetPassword({
+    tenantId,
+    email: parsed.data.email,
+    otp: parsed.data.otp,
+    newPassword: parsed.data.newPassword,
+    ipAddress: ip,
+  });
+
+  return successResponse(
+    c,
+    {
+      message:
+        "Password reset successfully. Please log in with your new password.",
+    },
+    200
+  );
 });
 export default auth;

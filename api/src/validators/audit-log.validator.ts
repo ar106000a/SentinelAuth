@@ -11,7 +11,10 @@ const VALID_EVENT_TYPES = [
   "velocity_anomaly_detected",
   "impossible_travel_detected",
   "hibp_check_failed",
-  "tenant_reset_password"
+  "gdpr_user_deleted",
+  "tenant_password_reset",
+  "password_reset_requested",
+  "password_reset_completed",
 ] as const;
 
 export const auditLogQuerySchema = z.object({

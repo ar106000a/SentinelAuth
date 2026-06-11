@@ -9,9 +9,10 @@ import { isPasswordPwned } from "./hibp.service";
 import * as schema from "../db/schema/index";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { withTenant } from "../db/with-tenant";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { generateOtp, hashPassword, sha256 } from "../utils/crypto";
 import { sendOtpEmail } from "./email.service";
+import { adminDb } from "../db";
 
 export interface RegisterUserInput {
   tenantId: string;
@@ -147,4 +148,173 @@ export async function verifyUserEmail(
       );
   });
   return { message: "Email Verified Successfully, You may now log in." };
+}
+
+export async function userForgotPassword(
+  tenantId: string,
+  email: string,
+  ipAddress?: string
+): Promise<void> {
+  await withTenant(tenantId, async (client: PoolClient) => {
+    const tenantDb = drizzle(client, { schema });
+
+    //look up user
+    const [user] = await tenantDb
+      .select({ id: schema.users.id, isVerified: schema.users.isVerified })
+      .from(schema.users)
+      .where(
+        and(eq(schema.users.tenantId, tenantId), eq(schema.users.email, email))
+      )
+      .limit(1);
+
+    //If not found, silent return
+    if (!user || !user.isVerified) {
+      return;
+    }
+
+    await tenantDb
+      .update(schema.otpTokens)
+      .set({ usedAt: new Date() })
+      .where(
+        and(
+          eq(schema.otpTokens.userId, user.id),
+          eq(schema.otpTokens.tenantId, tenantId),
+          eq(schema.otpTokens.type, "password_reset"),
+          sql`used_at IS NULL`
+        )
+      );
+
+    const { rawOtp, otpHash } = generateOtp();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    //store otp first
+    await tenantDb.insert(schema.otpTokens).values({
+      tenantId,
+      userId: user.id,
+      tokenHash: otpHash,
+      type: "password_reset",
+      expiresAt,
+    });
+
+    //logging the event
+    await tenantDb.insert(schema.riskLogs).values({
+      tenantId,
+      userId: user.id,
+      eventType: "password_reset_requested",
+      mfaTriggered: false,
+      ipAddress: ipAddress ?? null,
+    });
+
+    //send the email
+    await sendOtpEmail(email, rawOtp, "password_reset");
+  });
+}
+
+//ResetPassword
+export interface UserResetPasswordInput {
+  tenantId: string;
+  email: string;
+  otp: string;
+  newPassword: string;
+  ipAddress?: string;
+}
+export async function userResetPassword(
+  input: UserResetPasswordInput
+): Promise<void> {
+  const { tenantId, email, newPassword, ipAddress, otp } = input;
+
+  const isPwned = await isPasswordPwned(newPassword);
+  if (isPwned) {
+    throw new ValidationError(
+      "This password has been found in a known data breach. Please choose a different one."
+    );
+  }
+
+  await withTenant(tenantId, async (client: PoolClient) => {
+    const tenantDb = drizzle(client, { schema });
+
+    //check if user exists
+    const [user] = await tenantDb
+      .select({
+        id: schema.users.id,
+      })
+      .from(schema.users)
+      .where(
+        and(eq(schema.users.tenantId, tenantId), eq(schema.users.email, email))
+      )
+      .limit(1);
+
+    //No chance of enumeration
+    if (!user) {
+      throw new AuthenticationError("Invalid or expired reset code");
+    }
+
+    //Checking for otp
+    const [token] = await tenantDb
+      .select()
+      .from(schema.otpTokens)
+      .where(
+        and(
+          eq(schema.otpTokens.userId, user.id),
+          eq(schema.otpTokens.tenantId, tenantId),
+          eq(schema.otpTokens.type, "password_reset"),
+          sql`used_at IS NULL`,
+          sql`expires_at > NOW()`
+        )
+      )
+      .limit(1);
+
+    if (!token) {
+      throw new AuthenticationError("Invalid or expired reset code");
+    }
+
+    //Verifying otp
+    const hashedOtp = sha256(otp);
+    if (token.tokenHash !== hashedOtp) {
+      throw new AuthenticationError("Invalid or expired reset code");
+    }
+
+    const hashedPassword = await hashPassword(newPassword);
+
+    //marking token as used
+    await tenantDb
+      .update(schema.otpTokens)
+      .set({
+        usedAt: new Date(),
+      })
+      .where(eq(schema.otpTokens.id, token.id));
+
+    //updating password
+    await tenantDb
+      .update(schema.users)
+      .set({
+        passwordHash: hashedPassword,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(schema.users.id, user.id), eq(schema.users.tenantId, tenantId))
+      );
+
+    //revoke all sessions
+    await adminDb
+      .update(schema.sessions)
+      .set({
+        isRevoked: true,
+      })
+      .where(
+        and(
+          eq(schema.sessions.userId, user.id),
+          eq(schema.sessions.tenantId, tenantId)
+        )
+      );
+
+    //logging event
+    await adminDb.insert(schema.riskLogs).values({
+      tenantId,
+      userId: user.id,
+      mfaTriggered: false,
+      ipAddress: ipAddress ?? null,
+      eventType: "password_reset_completed",
+    });
+  });
 }
