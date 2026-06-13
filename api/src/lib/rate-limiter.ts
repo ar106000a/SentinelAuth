@@ -1,9 +1,9 @@
 import { redis } from "./redis";
 
 export interface RateLimitConfig {
-  maxTokens: number;        // bucket capacity
-  refillRate: number;       // tokens added per second
-  windowSeconds: number;    // TTL for the Redis key
+  maxTokens: number; // bucket capacity
+  refillRate: number; // tokens added per second
+  windowSeconds: number; // TTL for the Redis key
 }
 
 export interface RateLimitResult {
@@ -73,7 +73,7 @@ export async function consumeToken(
     return { allowed, math.floor(tokens), reset_in }
   `;
 
-  const result = await redis.eval(
+  const result = (await redis.eval(
     luaScript,
     1,
     bucketKey,
@@ -81,7 +81,7 @@ export async function consumeToken(
     config.maxTokens.toString(),
     config.refillRate.toString(),
     config.windowSeconds.toString()
-  ) as [number, number, number];
+  )) as [number, number, number];
 
   return {
     allowed: result[0] === 1,
