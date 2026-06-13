@@ -92,7 +92,7 @@ export function decryptPrivateKey(stored: string): string {
   // LOG THIS TO SEE WHAT'S ACTUALLY IN THE DB
   if (parts.length !== 3) {
     throw new Error(
-      `Invalid encrypted key format! Expected 3 parts, got ${parts.length}. String: ${stored}`
+      `Invalid encrypted key format! Expected 3 parts, got ${parts.length}.`
     );
   }
   const [ivHex, encryptedHex, tagHex] = stored.split(":");
@@ -108,9 +108,15 @@ export function decryptPrivateKey(stored: string): string {
     decipher.update(encrypted),
     decipher.final(),
   ]).toString("utf8");
-  if (!decrypted.includes("-----BEGIN")) {
-    // return `-----BEGIN RSA PRIVATE KEY-----\n${decrypted}\n-----END RSA PRIVATE KEY-----`;
-    throw new Error("Decrypted private key has invalid format");
-  }
+  // if (!decrypted.includes("-----BEGIN")) {
+  //   // return `-----BEGIN RSA PRIVATE KEY-----\n${decrypted}\n-----END RSA PRIVATE KEY-----`;
+  //   throw new Error("Decrypted private key has invalid format");
+  // }
   return decrypted;
+}
+export function encryptMfaSecret(secret: string): string {
+  return encryptPrivateKey(secret);
+}
+export function decryptMfaSecret(stored: string): string {
+  return decryptPrivateKey(stored);
 }

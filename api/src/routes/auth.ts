@@ -25,6 +25,11 @@ import {
 } from "../services/auth.service";
 import { successResponse } from "../utils/response";
 import { userAuth } from "../middleware/user-auth";
+import { adminDb } from "../db";
+import { tenants, users } from "../db/schema";
+import { and, eq } from "drizzle-orm";
+import { disableMfa, enableMfa, setupMfa } from "../services/mfa.service";
+import { mfaCodeSchema, mfaDisableSchema } from "../validators/mfa.validator";
 
 const auth = new Hono();
 auth.post("/register", async (c) => {
@@ -185,6 +190,86 @@ auth.post("/reset-password", async (c) => {
       message:
         "Password reset successfully. Please log in with your new password.",
     },
+    200
+  );
+});
+
+auth.post("/mfa/setup", userAuth, async (c) => {
+  const tenantId = c.get("tenantId");
+  const userId = c.get("userId");
+
+  // Fetch tenant name and user email for QR code labeling
+  const [tenant] = await adminDb
+    .select({ name: tenants.name })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+    .limit(1);
+
+  const [user] = await adminDb
+    .select({ email: users.email })
+    .from(users)
+    .where(and(eq(users.id, userId), eq(users.tenantId, tenantId)))
+    .limit(1);
+
+  const result = await setupMfa(
+    userId,
+    tenantId,
+    tenant?.name ?? "SentinelAuth",
+    user?.email ?? ""
+  );
+
+  return successResponse(c, result, 200);
+});
+
+auth.post("/mfa/enable", userAuth, async (c) => {
+  const tenantId = c.get("tenantId");
+  const userId = c.get("userId");
+
+  const body = await c.req.json().catch(() => {
+    throw new ValidationError("Request body must be valid JSON");
+  });
+
+  const parsed = mfaCodeSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ValidationError(
+      parsed.error.issues.map((i) => i.message).join(", ")
+    );
+  }
+
+  await enableMfa(tenantId, userId, parsed.data.code);
+
+  return successResponse(
+    c,
+    { message: "MFA enabled successfully" },
+    200
+  );
+});
+
+auth.post("/mfa/disable", userAuth, async (c) => {
+  const tenantId = c.get("tenantId");
+  const userId = c.get("userId")!;
+
+  const body = await c.req.json().catch(() => {
+    throw new ValidationError("Request body must be valid JSON");
+  });
+
+  const parsed = mfaDisableSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ValidationError(
+      parsed.error.issues.map((i) => i.message).join(", ")
+    );
+  }
+
+  await disableMfa({
+    tenantId,
+    userId,
+    password: parsed.data.password,
+    code: parsed.data.code,
+  });
+
+  return successResponse(
+    c,
+    { message: "MFA disabled successfully" },
     200
   );
 });

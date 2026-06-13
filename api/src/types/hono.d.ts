@@ -9,6 +9,6 @@ declare module 'hono'{
             failOpen: boolean;
         };
         requestId: string;
-        userId?: string;
+        userId: string;
     }
 }

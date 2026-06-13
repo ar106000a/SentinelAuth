@@ -46,7 +46,11 @@ export async function userAuth(c: Context, next: Next) {
   }
   //   console.log("tenantId from context:", tenantId);
   //   console.log("tenantId from token:", payload.tenantId);
-
+  if (!payload || typeof payload.sub !== "string" || !payload.sub) {
+    throw new AuthenticationError(
+      "Malformed token payload: missing user identity"
+    );
+  }
   //checking payload signature validation
   if (payload.tenantId !== tenantId) {
     throw new AuthenticationError("Token tenant mismatch");

@@ -124,3 +124,8 @@ export interface ForgotPasswordResponse {
 export interface ResetPasswordResponse {
   message: string;
 }
+
+export interface MfaSetupResponse {
+  secret: string;
+  qrCodeDataUri: string;
+}
