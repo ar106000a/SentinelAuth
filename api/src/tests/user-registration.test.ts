@@ -33,6 +33,9 @@ function authHeaders() {
     Authorization: `Bearer ${tenantSecret}`,
   };
 }
+afterEach(async () => {
+  await cleanupTenants(["user-reg-tenant-2@sentineltest.com"]);
+});
 
 describe("POST /api/auth/register", () => {
   it("registers a new user and returns pending message", async () => {
@@ -117,7 +120,7 @@ describe("POST /api/auth/register", () => {
 
     expect(res.status).toBe(201);
 
-    await cleanupTenants(["user-reg-tenant-2@sentineltest.com"]);
+    // await cleanupTenants(["user-reg-tenant-2@sentineltest.com"]);
   });
 
   it("rejects short password with 400", async () => {

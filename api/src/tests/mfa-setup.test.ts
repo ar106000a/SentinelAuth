@@ -122,7 +122,7 @@ beforeAll(async () => {
 
   const loginBody =
     (await loginRes.json()) as ApiSuccessResponse<LoginResponse>;
-  accessToken = loginBody.data.accessToken;
+  accessToken = loginBody.data.accessToken!;
 });
 
 afterAll(async () => {

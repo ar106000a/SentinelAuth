@@ -28,8 +28,8 @@ import { userAuth } from "../middleware/user-auth";
 import { adminDb } from "../db";
 import { tenants, users } from "../db/schema";
 import { and, eq } from "drizzle-orm";
-import { disableMfa, enableMfa, setupMfa } from "../services/mfa.service";
-import { mfaCodeSchema, mfaDisableSchema } from "../validators/mfa.validator";
+import { disableMfa, enableMfa, setupMfa, verifyMfaChallenge } from "../services/mfa.service";
+import { mfaCodeSchema, mfaDisableSchema, mfaVerifySchema } from "../validators/mfa.validator";
 
 const auth = new Hono();
 auth.post("/register", async (c) => {
@@ -272,5 +272,29 @@ auth.post("/mfa/disable", userAuth, async (c) => {
     { message: "MFA disabled successfully" },
     200
   );
+});
+
+// Note: NOT behind userAuth — user isn't authenticated yet at this point
+auth.post("/mfa/verify", async (c) => {
+  const tenantId = c.get("tenantId");
+
+  const body = await c.req.json().catch(() => {
+    throw new ValidationError("Request body must be valid JSON");
+  });
+
+  const parsed = mfaVerifySchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ValidationError(
+      parsed.error.issues.map((i) => i.message).join(", ")
+    );
+  }
+
+  const result = await verifyMfaChallenge({
+    tenantId,
+    sessionChallenge: parsed.data.sessionChallenge,
+    code: parsed.data.code,
+  });
+
+  return successResponse(c, result, 200);
 });
 export default auth;

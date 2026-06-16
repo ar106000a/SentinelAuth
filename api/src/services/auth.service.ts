@@ -10,7 +10,7 @@ import { withTenant } from "../db/with-tenant";
 import { PoolClient } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "../db/schema/index";
-import { verifyPassword } from "../utils/crypto";
+import { sha256, verifyPassword } from "../utils/crypto";
 import {
   hashToken,
   signJwt,
@@ -18,6 +18,7 @@ import {
   verifyRefreshToken,
 } from "../utils/jwt";
 import { env } from "../config/env";
+import { randomBytes } from "crypto";
 
 export interface LoginInput {
   tenantId: string;
@@ -25,14 +26,21 @@ export interface LoginInput {
   password: string;
 }
 export interface LoginOutput {
-  accessToken: string;
-  refreshToken: string;
+  accessToken?: string;
+  refreshToken?: string;
   mfaRequired: false;
+  sessionChallenge?: string;
   userId: string;
 }
 
 export async function loginUser(input: LoginInput): Promise<LoginOutput> {
   const { tenantId, email, password } = input;
+
+  let mfaRequired = false;
+  let sessionChallengeOut: string | undefined;
+  let accessToken: string | undefined;
+  let refreshToken: string | undefined;
+  let userId: string;
 
   //checking if the tenant exists or not
   const [tenant] = await adminDb
@@ -47,10 +55,6 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
   if (!tenant || !tenant.privateKeyEncrypted) {
     throw new NotFoundError("Tenant");
   }
-
-  let accessToken: string;
-  let refreshToken: string;
-  let userId: string;
 
   await withTenant(tenantId, async (client: PoolClient) => {
     const tenantDb = drizzle(client, { schema });
@@ -74,6 +78,34 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
     const passwordValid = await verifyPassword(user.passwordHash, password);
     if (!passwordValid) {
       throw new AuthenticationError("Invalid email or password.");
+    }
+
+    if (user.mfaEnabled) {
+      //Creating session challenge - random token not a jwt
+      const sessionChallenge = randomBytes(32).toString("hex");
+      const challengeHash = sha256(sessionChallenge);
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+      await tenantDb.insert(schema.otpTokens).values({
+        tenantId,
+        userId: user.id,
+        tokenHash: challengeHash,
+        type: "mfa_challenge",
+        expiresAt,
+      });
+
+      await tenantDb.insert(schema.riskLogs).values({
+        tenantId,
+        userId: user.id,
+        eventType: "mfa_triggered",
+        mfaTriggered: true,
+      });
+
+      mfaRequired = true;
+      sessionChallengeOut = sessionChallenge;
+      userId = user.id;
+
+      return;
     }
 
     accessToken = signJwt(
@@ -128,7 +160,8 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
   return {
     accessToken: accessToken!,
     refreshToken: refreshToken!,
-    mfaRequired: false,
+    mfaRequired,
+    sessionChallenge:sessionChallengeOut,
     userId: userId!,
   };
 }
