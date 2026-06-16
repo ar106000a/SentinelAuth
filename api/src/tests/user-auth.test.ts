@@ -84,8 +84,8 @@ beforeAll(async () => {
   );
 
   const body = (await res.json()) as ApiSuccessResponse<LoginResponse>;
-  accessToken = body.data.accessToken;
-  refreshToken = body.data.refreshToken;
+  accessToken = body.data.accessToken!;
+  refreshToken = body.data.refreshToken!;
 });
 
 afterAll(async () => {

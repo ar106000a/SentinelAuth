@@ -105,7 +105,7 @@ describe("POST /api/auth/login", () => {
     expect(body.data.userId).toBeTruthy();
 
     // JWT has 3 parts separated by dots
-    expect(body.data.accessToken.split(".")).toHaveLength(3);
+    expect(body.data.accessToken!.split(".")).toHaveLength(3);
   });
 
   it("rejects wrong password with 401", async () => {
@@ -218,7 +218,7 @@ describe("POST /api/auth/login", () => {
 
     // Decode payload without verifying (base64 decode middle part)
     const payload = JSON.parse(
-      Buffer.from(token.split(".")[1], "base64url").toString("utf8")
+      Buffer.from(token!.split(".")[1], "base64url").toString("utf8")
     );
 
     expect(payload.tenantId).toBe(tenantId);
