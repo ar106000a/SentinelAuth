@@ -28,8 +28,17 @@ import { userAuth } from "../middleware/user-auth";
 import { adminDb } from "../db";
 import { tenants, users } from "../db/schema";
 import { and, eq } from "drizzle-orm";
-import { disableMfa, enableMfa, setupMfa, verifyMfaChallenge } from "../services/mfa.service";
-import { mfaCodeSchema, mfaDisableSchema, mfaVerifySchema } from "../validators/mfa.validator";
+import {
+  disableMfa,
+  enableMfa,
+  setupMfa,
+  verifyMfaChallenge,
+} from "../services/mfa.service";
+import {
+  mfaCodeSchema,
+  mfaDisableSchema,
+  mfaVerifySchema,
+} from "../validators/mfa.validator";
 
 const auth = new Hono();
 auth.post("/register", async (c) => {
@@ -77,7 +86,8 @@ auth.post("/verify-email", async (c) => {
 
 auth.post("/login", async (c) => {
   const tenantId = c.get("tenantId");
-
+  const ip =
+    c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "unknown";
   const body = await c.req.json().catch(() => {
     throw new ValidationError("Request body must be a valid json.");
   });
@@ -93,6 +103,7 @@ auth.post("/login", async (c) => {
       tenantId,
       email: parsed.data.email,
       password: parsed.data.password,
+      ipAddress: ip,
     });
     return successResponse(c, result, 200);
   } catch (error) {
@@ -238,11 +249,7 @@ auth.post("/mfa/enable", userAuth, async (c) => {
 
   await enableMfa(tenantId, userId, parsed.data.code);
 
-  return successResponse(
-    c,
-    { message: "MFA enabled successfully" },
-    200
-  );
+  return successResponse(c, { message: "MFA enabled successfully" }, 200);
 });
 
 auth.post("/mfa/disable", userAuth, async (c) => {
@@ -267,17 +274,14 @@ auth.post("/mfa/disable", userAuth, async (c) => {
     code: parsed.data.code,
   });
 
-  return successResponse(
-    c,
-    { message: "MFA disabled successfully" },
-    200
-  );
+  return successResponse(c, { message: "MFA disabled successfully" }, 200);
 });
 
 // Note: NOT behind userAuth — user isn't authenticated yet at this point
 auth.post("/mfa/verify", async (c) => {
   const tenantId = c.get("tenantId");
-
+  const ip =
+    c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "unknown";
   const body = await c.req.json().catch(() => {
     throw new ValidationError("Request body must be valid JSON");
   });
@@ -293,6 +297,7 @@ auth.post("/mfa/verify", async (c) => {
     tenantId,
     sessionChallenge: parsed.data.sessionChallenge,
     code: parsed.data.code,
+    ipAddress: ip,
   });
 
   return successResponse(c, result, 200);

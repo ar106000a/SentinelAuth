@@ -183,6 +183,7 @@ export interface MfaVerifyInput {
   tenantId: string;
   sessionChallenge: string;
   code: string;
+  ipAddress?: string;
 }
 
 export interface MfaVerifyOutput {
@@ -194,7 +195,7 @@ export interface MfaVerifyOutput {
 export async function verifyMfaChallenge(
   input: MfaVerifyInput
 ): Promise<MfaVerifyOutput> {
-  const { tenantId, sessionChallenge, code } = input;
+  const { tenantId, sessionChallenge, code, ipAddress } = input;
 
   const [tenant] = await schema.adminDb
     .select({ privateKeyEncrypted: tenants.privateKeyEncrypted })
@@ -298,7 +299,13 @@ export async function verifyMfaChallenge(
 
     await tenantDb
       .update(users)
-      .set({ lastLoginAt: new Date(), updatedAt: new Date() })
+      .set({
+        lastLoginAt: new Date(),
+        lastLoginIp: ipAddress ?? null,
+        lastLoginLat: null,
+        lastLoginLng: null,
+        updatedAt: new Date(),
+      })
       .where(eq(users.id, user.id));
 
     await tenantDb.insert(riskLogs).values({

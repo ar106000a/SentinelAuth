@@ -218,7 +218,10 @@ describe("POST /api/auth/mfa/verify", () => {
     const res = await app.fetch(
       new Request("http://localhost/api/auth/mfa/verify", {
         method: "POST",
-        headers: authHeaders(),
+        headers: {
+          ...authHeaders(),
+          "x-forwarded-for": "203.0.113.42", // add this
+        },
         body: JSON.stringify({ sessionChallenge, code }),
       })
     );
@@ -229,6 +232,20 @@ describe("POST /api/auth/mfa/verify", () => {
     expect(body.data.accessToken).toBeTruthy();
     expect(body.data.refreshToken).toBeTruthy();
     expect(body.data.accessToken.split(".")).toHaveLength(3);
+
+    // Add this block — verifies IP was captured on MFA-completed login
+    const [user] = await adminDb
+      .select({
+        lastLoginIp: users.lastLoginIp,
+        lastLoginLat: users.lastLoginLat,
+        lastLoginLng: users.lastLoginLng,
+      })
+      .from(users)
+      .where(and(eq(users.tenantId, tenantId), eq(users.email, USER_EMAIL)));
+
+    expect(user.lastLoginIp).toBe("203.0.113.42");
+    expect(user.lastLoginLat).toBeNull();
+    expect(user.lastLoginLng).toBeNull();
   });
 
   it("rejects invalid TOTP code", async () => {

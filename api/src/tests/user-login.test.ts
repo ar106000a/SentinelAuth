@@ -12,7 +12,6 @@ vi.mock("../services/email.service.js", () => ({
   sendOtpEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
-
 const TENANT_EMAIL = "login-test-tenant@sentineltest.com";
 let tenantSecret: string;
 let tenantId: string;
@@ -226,5 +225,58 @@ describe("POST /api/auth/login", () => {
     expect(payload.iss).toBe("sentinelauth");
     expect(payload.sub).toBeTruthy();
     expect(payload.exp).toBeGreaterThan(Date.now() / 1000);
+  });
+  it("records lastLoginIp on successful login", async () => {
+    const res = await app.fetch(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "x-forwarded-for": "203.0.113.42",
+        },
+        body: JSON.stringify({
+          email: "verified-login@example.com",
+          password: "SecurePass!123",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(200);
+
+    const [user] = await adminDb
+      .select({
+        lastLoginIp: users.lastLoginIp,
+        lastLoginLat: users.lastLoginLat,
+        lastLoginLng: users.lastLoginLng,
+      })
+      .from(users)
+      .where(eq(users.email, "verified-login@example.com"));
+
+    expect(user.lastLoginIp).toBe("203.0.113.42");
+    // Explicitly still null — deferred to Phase 3
+    expect(user.lastLoginLat).toBeNull();
+    expect(user.lastLoginLng).toBeNull();
+  });
+
+  it("falls back to 'unknown' when no IP header present", async () => {
+    const res = await app.fetch(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: authHeaders(), // no x-forwarded-for
+        body: JSON.stringify({
+          email: "verified-login@example.com",
+          password: "SecurePass!123",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(200);
+
+    const [user] = await adminDb
+      .select({ lastLoginIp: users.lastLoginIp })
+      .from(users)
+      .where(eq(users.email, "verified-login@example.com"));
+
+    expect(user.lastLoginIp).toBe("unknown");
   });
 });

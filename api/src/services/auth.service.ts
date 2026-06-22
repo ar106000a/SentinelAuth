@@ -24,6 +24,7 @@ export interface LoginInput {
   tenantId: string;
   email: string;
   password: string;
+  ipAddress?: string;
 }
 export interface LoginOutput {
   accessToken?: string;
@@ -34,7 +35,7 @@ export interface LoginOutput {
 }
 
 export async function loginUser(input: LoginInput): Promise<LoginOutput> {
-  const { tenantId, email, password } = input;
+  const { tenantId, email, password, ipAddress } = input;
 
   let mfaRequired = false;
   let sessionChallengeOut: string | undefined;
@@ -99,6 +100,7 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
         userId: user.id,
         eventType: "mfa_triggered",
         mfaTriggered: true,
+        ipAddress: ipAddress ?? null,
       });
 
       mfaRequired = true;
@@ -140,7 +142,13 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
 
     await tenantDb
       .update(schema.users)
-      .set({ lastLoginAt: new Date(), updatedAt: new Date() })
+      .set({
+        lastLoginAt: new Date(),
+        lastLoginIp: ipAddress ?? null,
+        lastLoginLat: null,
+        lastLoginLng: null,
+        updatedAt: new Date(),
+      })
       .where(eq(schema.users.id, user.id));
 
     userId = user.id;
@@ -152,7 +160,7 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
       eventType: "login_success",
       riskScore: null, // Phase 3 will populate this
       mfaTriggered: false, // Phase 3 will set this dynamically
-      ipAddress: null, // Phase 3 will wire this in
+      ipAddress: ipAddress ?? null,
       userAgent: null, // Phase 3 will wire this in
       fingerprint: null, // Phase 3 will wire this in
     });
@@ -161,7 +169,7 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
     accessToken: accessToken!,
     refreshToken: refreshToken!,
     mfaRequired,
-    sessionChallenge:sessionChallengeOut,
+    sessionChallenge: sessionChallengeOut,
     userId: userId!,
   };
 }
