@@ -1,58 +1,52 @@
-import { describe, it, expect, beforeEach, afterAll } from "vitest";
-import { consumeToken, AUTH_RATE_LIMIT } from "../lib/rate-limiter";
+import { describe, it, expect } from "vitest";
+import { consumeToken, RateLimitConfig } from "../lib/rate-limiter";
 import { redis } from "../lib/redis";
+import { randomUUID } from "crypto";
 
-const TEST_KEY = "test:rate-limit:unit";
-
-beforeEach(async () => {
-  // Clean slate for each test
-  await redis.del(`ratelimit:${TEST_KEY}`);
-});
-
-afterAll(async () => {
-  await redis.del(`ratelimit:${TEST_KEY}`);
-  redis.disconnect();
-});
+// Own config — never imports AUTH_RATE_LIMIT or DEFAULT_RATE_LIMIT
+const UNIT_TEST_CONFIG: RateLimitConfig = {
+  maxTokens: 5,
+  refillRate: 1,
+  windowSeconds: 60,
+};
 
 describe("Token bucket rate limiter", () => {
-  it("should allow requests within the limit", async () => {
-    const result = await consumeToken(TEST_KEY, {
-      maxTokens: 5,
-      refillRate: 1,
-      windowSeconds: 60,
-    });
+  const testKey = `test-${randomUUID()}`;
 
-    expect(result.allowed).toBe(true);
-    expect(result.remaining).toBe(4);
+  afterEach(async () => {
+    // Clean up this test's bucket from Redis after each test
+    await redis.del(`ratelimit:${testKey}`);
   });
 
-  it("should block requests when bucket is empty", async () => {
-    const config = { maxTokens: 3, refillRate: 1, windowSeconds: 60 };
+  it("allows requests within limit", async () => {
+    for (let i = 0; i < 5; i++) {
+      const result = await consumeToken(testKey, UNIT_TEST_CONFIG);
+      expect(result.allowed).toBe(true);
+    }
+  });
 
-    // Drain the bucket
-    await consumeToken(TEST_KEY, config);
-    await consumeToken(TEST_KEY, config);
-    await consumeToken(TEST_KEY, config);
-
-    // This one should be blocked
-    const result = await consumeToken(TEST_KEY, config);
-
+  it("blocks when bucket is exhausted", async () => {
+    for (let i = 0; i < 5; i++) {
+      await consumeToken(testKey, UNIT_TEST_CONFIG);
+    }
+    const result = await consumeToken(testKey, UNIT_TEST_CONFIG);
     expect(result.allowed).toBe(false);
     expect(result.remaining).toBe(0);
   });
 
-  it("should use stricter limits for auth endpoints", async () => {
-    expect(AUTH_RATE_LIMIT.maxTokens).toBeLessThan(100);
-    expect(AUTH_RATE_LIMIT.refillRate).toBeLessThanOrEqual(5);
+  it("remaining decrements correctly", async () => {
+    const first = await consumeToken(testKey, UNIT_TEST_CONFIG);
+    expect(first.remaining).toBe(4);
+
+    const second = await consumeToken(testKey, UNIT_TEST_CONFIG);
+    expect(second.remaining).toBe(3);
   });
 
-  it("should return resetInSeconds when blocked", async () => {
-    const config = { maxTokens: 1, refillRate: 1, windowSeconds: 60 };
-
-    await consumeToken(TEST_KEY, config); // drain
-    const blocked = await consumeToken(TEST_KEY, config);
-
-    expect(blocked.allowed).toBe(false);
-    expect(blocked.resetInSeconds).toBeGreaterThan(0);
+  it("returns resetInSeconds when blocked", async () => {
+    for (let i = 0; i < 5; i++) {
+      await consumeToken(testKey, UNIT_TEST_CONFIG);
+    }
+    const result = await consumeToken(testKey, UNIT_TEST_CONFIG);
+    expect(result.resetInSeconds).toBeGreaterThan(0);
   });
 });

@@ -6,7 +6,7 @@ import {
   users,
   riskLogs,
   sessions,
-//   otpTokens,
+  //   otpTokens,
 } from "../db/schema/index.js";
 import { eq, and } from "drizzle-orm";
 import { cleanupTenants, seedTenant } from "./utils/seed.js";
@@ -14,7 +14,7 @@ import {
   generateRSAKeyPair,
   generateSecretKey,
   encryptPrivateKey,
-//   generateOtp,
+  //   generateOtp,
 } from "../utils/crypto.js";
 import { hashToken } from "../utils/jwt.js";
 import type {
@@ -297,34 +297,36 @@ describe("DELETE /dashboard/users/:id", () => {
   });
 
   it("cannot delete user belonging to another tenant", async () => {
-    // Seed a user in a different tenant
-    const { tenant: otherTenant } = await seedTenant({
-      adminEmail: "other-tenant-user-mgmt@sentineltest.com",
-      isVerified: true,
-    });
-
-    const [otherUser] = await adminDb
-      .insert(users)
-      .values({
-        tenantId: otherTenant.id,
-        email: "other-user@example.com",
-        passwordHash: "hash",
+    try {
+      // Seed a user in a different tenant
+      const { tenant: otherTenant } = await seedTenant({
+        adminEmail: "other-tenant-user-mgmt@sentineltest.com",
         isVerified: true,
-      })
-      .returning({ id: users.id });
+      });
 
-    // Try to delete other tenant's user using our session
-    const res = await app.fetch(
-      new Request(`http://localhost/dashboard/users/${otherUser.id}`, {
-        method: "DELETE",
-        headers: sessionHeaders(),
-      })
-    );
+      const [otherUser] = await adminDb
+        .insert(users)
+        .values({
+          tenantId: otherTenant.id,
+          email: "other-user@example.com",
+          passwordHash: "hash",
+          isVerified: true,
+        })
+        .returning({ id: users.id });
 
-    // Should 404 — user not found in our tenant
-    expect(res.status).toBe(404);
+      // Try to delete other tenant's user using our session
+      const res = await app.fetch(
+        new Request(`http://localhost/dashboard/users/${otherUser.id}`, {
+          method: "DELETE",
+          headers: sessionHeaders(),
+        })
+      );
 
-    await cleanupTenants(["other-tenant-user-mgmt@sentineltest.com"]);
+      // Should 404 — user not found in our tenant
+      expect(res.status).toBe(404);
+    } finally {
+      await cleanupTenants(["other-tenant-user-mgmt@sentineltest.com"]);
+    }
   });
 
   it("rejects unauthenticated request with 401", async () => {

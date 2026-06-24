@@ -40,13 +40,23 @@ export interface UserRegistrationResponse {
 export interface UserVerifyEmailResponse {
   message: string;
 }
-export interface LoginResponse {
-  accessToken?: string;
-  refreshToken?: string;
-  mfaRequired: boolean;
-  sessionChallenge?: string;
+// When MFA is not required — all token fields present
+export interface LoginSuccessResponse {
+  accessToken: string;
+  refreshToken: string;
+  mfaRequired: false;
   userId: string;
 }
+
+// When MFA is required — challenge fields present, no tokens
+export interface LoginMfaResponse {
+  mfaRequired: true;
+  sessionChallenge: string;
+  userId: string;
+}
+
+// Union — what the login endpoint actually returns
+export type LoginResponse = LoginSuccessResponse | LoginMfaResponse;
 
 export interface MfaVerifyResponse {
   accessToken: string;

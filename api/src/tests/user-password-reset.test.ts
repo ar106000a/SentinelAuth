@@ -24,20 +24,20 @@ let tenantSecret: string;
 let tenantId: string;
 let userId: string;
 
-async function getActiveResetToken() {
-  const [token] = await adminDb
-    .select()
-    .from(otpTokens)
-    .where(
-      and(
-        eq(otpTokens.userId, userId),
-        eq(otpTokens.type, "password_reset"),
-        sql`used_at IS NULL`
-      )
-    )
-    .limit(1);
-  return token;
-}
+// async function getActiveResetToken() {
+//   const [token] = await adminDb
+//     .select()
+//     .from(otpTokens)
+//     .where(
+//       and(
+//         eq(otpTokens.userId, userId),
+//         eq(otpTokens.type, "password_reset"),
+//         sql`used_at IS NULL`
+//       )
+//     )
+//     .limit(1);
+//   return token;
+// }
 
 function authHeaders() {
   return {

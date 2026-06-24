@@ -5,7 +5,7 @@ import { users, otpTokens } from "../db/schema/index.js";
 import { eq, and } from "drizzle-orm";
 import { seedTenant, cleanupTenants } from "./utils/seed.js";
 import { generateOtp } from "../utils/crypto.js";
-import type { LoginResponse } from "@sentinelauth/types";
+import type {  LoginSuccessResponse } from "@sentinelauth/types";
 import type { ApiSuccessResponse } from "@sentinelauth/types";
 
 vi.mock("../services/email.service.js", () => ({
@@ -95,7 +95,7 @@ describe("POST /api/auth/login", () => {
       })
     );
 
-    const body = (await res.json()) as ApiSuccessResponse<LoginResponse>;
+    const body = (await res.json()) as ApiSuccessResponse<LoginSuccessResponse>;
 
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
@@ -212,7 +212,7 @@ describe("POST /api/auth/login", () => {
       })
     );
 
-    const body = (await res.json()) as ApiSuccessResponse<LoginResponse>;
+    const body = (await res.json()) as ApiSuccessResponse<LoginSuccessResponse>;
     const token = body.data.accessToken;
 
     // Decode payload without verifying (base64 decode middle part)

@@ -53,15 +53,13 @@ describe("Full request lifecycle integration", () => {
         body: JSON.stringify({}),
       })
     );
-
+    console.log(res.headers);
     expect(res.headers.get("X-RateLimit-Limit")).toBeTruthy();
     expect(res.headers.get("X-RateLimit-Remaining")).toBeTruthy();
   });
 
   it("unknown routes return 404 with correct shape", async () => {
-    const res = await app.fetch(
-      new Request("http://localhost/ap/nonexistent")
-    );
+    const res = await app.fetch(new Request("http://localhost/ap/nonexistent"));
     expect(res.status).toBe(404);
     const body = (await res.json()) as {
       success: boolean;

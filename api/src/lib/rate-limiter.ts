@@ -19,7 +19,7 @@ export const DEFAULT_RATE_LIMIT: RateLimitConfig = {
 };
 
 export const AUTH_RATE_LIMIT: RateLimitConfig = {
-  maxTokens: 20,
+  maxTokens: 40,
   refillRate: 2,
   windowSeconds: 60,
 };

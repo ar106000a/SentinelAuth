@@ -233,35 +233,37 @@ describe("GET /dashboard/audit-logs", () => {
   });
 
   it("only returns logs for the authenticated tenant", async () => {
-    // Seed a second tenant with its own logs
-    const { tenant: tenant2 } = await seedTenant({
-      adminEmail: "audit-other-tenant@sentineltest.com",
-      isVerified: true,
-    });
+    try {
+      // Seed a second tenant with its own logs
+      const { tenant: tenant2 } = await seedTenant({
+        adminEmail: "audit-other-tenant@sentineltest.com",
+        isVerified: true,
+      });
 
-    await adminDb.insert(riskLogs).values({
-      tenantId: tenant2.id,
-      userId: null,
-      eventType: "login_success",
-      mfaTriggered: false,
-    });
+      await adminDb.insert(riskLogs).values({
+        tenantId: tenant2.id,
+        userId: null,
+        eventType: "login_success",
+        mfaTriggered: false,
+      });
 
-    const res = await app.fetch(
-      new Request("http://localhost/dashboard/audit-logs", {
-        headers: sessionHeaders(),
-      })
-    );
+      const res = await app.fetch(
+        new Request("http://localhost/dashboard/audit-logs", {
+          headers: sessionHeaders(),
+        })
+      );
 
-    const body = (await res.json()) as ApiSuccessResponse<AuditLogPage>;
+      const body = (await res.json()) as ApiSuccessResponse<AuditLogPage>;
 
-    // Every entry must belong to our tenant
-    body.data.entries.forEach((entry) => {
-      // We can't directly check tenantId from the response
-      // but we can check none of the entries have tenant2's data
-      // by verifying the count matches what we seeded for tenant1
-      expect(entry.eventType).toBeDefined();
-    });
-
-    await cleanupTenants(["audit-other-tenant@sentineltest.com"]);
+      // Every entry must belong to our tenant
+      body.data.entries.forEach((entry) => {
+        // We can't directly check tenantId from the response
+        // but we can check none of the entries have tenant2's data
+        // by verifying the count matches what we seeded for tenant1
+        expect(entry.eventType).toBeDefined();
+      });
+    } finally {
+      await cleanupTenants(["audit-other-tenant@sentineltest.com"]);
+    }
   });
 });

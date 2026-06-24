@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
-import {  generate } from "otplib";
+import { generate } from "otplib";
 import app from "../index.js";
 import { adminDb } from "../db/index.js";
 import { tenants, users, otpTokens } from "../db/schema/index.js";
@@ -14,7 +14,7 @@ import {
 import type {
   ApiSuccessResponse,
   MfaSetupResponse,
-  LoginResponse,
+  LoginSuccessResponse,
 } from "@sentinelauth/types";
 
 vi.mock("../services/email.service.js", () => ({
@@ -121,8 +121,8 @@ beforeAll(async () => {
   );
 
   const loginBody =
-    (await loginRes.json()) as ApiSuccessResponse<LoginResponse>;
-  accessToken = loginBody.data.accessToken!;
+    (await loginRes.json()) as ApiSuccessResponse<LoginSuccessResponse>;
+  accessToken = loginBody.data.accessToken;
 });
 
 afterAll(async () => {

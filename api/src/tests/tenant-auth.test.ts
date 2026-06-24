@@ -12,7 +12,6 @@ const TEST_EMAILS = [
 
 let verifiedSecret: string;
 
-
 beforeAll(async () => {
   // Seed a verified tenant
   const { rawSecret } = await seedTenant({
@@ -22,7 +21,7 @@ beforeAll(async () => {
   verifiedSecret = rawSecret;
 
   // Seed an unverified tenant
-   await seedTenant({
+  await seedTenant({
     adminEmail: TEST_EMAILS[1],
     isVerified: false,
   });
@@ -89,24 +88,26 @@ describe("tenantContext middleware", () => {
   });
 
   it("rejects unverified tenant with 403", async () => {
-    // Get the unverified tenant's raw secret from seed
-    const { rawSecret: unverifiedSecret } = await seedTenant({
-      adminEmail: "auth-middleware-unverified-2@sentineltest.com",
-      isVerified: false,
-    });
+    try {
+      // Get the unverified tenant's raw secret from seed
+      const { rawSecret: unverifiedSecret } = await seedTenant({
+        adminEmail: "auth-middleware-unverified-2@sentineltest.com",
+        isVerified: false,
+      });
 
-    const res = await app.fetch(
-      new Request("http://localhost/api/ping", {
-        headers: { Authorization: `Bearer ${unverifiedSecret}` },
-      })
-    );
+      const res = await app.fetch(
+        new Request("http://localhost/api/ping", {
+          headers: { Authorization: `Bearer ${unverifiedSecret}` },
+        })
+      );
 
-    expect(res.status).toBe(403);
-    const body = (await res.json()) as { error: { code: string } };
-    expect(body.error.code).toBe("FORBIDDEN");
-
-    // Cleanup extra tenant
-    await cleanupTenants(["auth-middleware-unverified-2@sentineltest.com"]);
+      expect(res.status).toBe(403);
+      const body = (await res.json()) as { error: { code: string } };
+      expect(body.error.code).toBe("FORBIDDEN");
+    } finally {
+      // Cleanup extra tenant
+      await cleanupTenants(["auth-middleware-unverified-2@sentineltest.com"]);
+    }
   });
 
   it("does not require auth on /health", async () => {
@@ -115,22 +116,24 @@ describe("tenantContext middleware", () => {
   });
 
   it("does not require auth on /tenants/register", async () => {
-    const res = await app.fetch(
-      new Request("http://localhost/tenants/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "Public Route Test",
-          adminEmail: "public-route-test@sentineltest.com",
-          password: "SuperSecure!Password123",
-        }),
-      })
-    );
+    try {
+      const res = await app.fetch(
+        new Request("http://localhost/tenants/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: "Public Route Test",
+            adminEmail: "public-route-test@sentineltest.com",
+            password: "SuperSecure!Password123",
+          }),
+        })
+      );
 
-    // 201 or 409 both mean the route was reached without auth
-    expect([201, 409]).toContain(res.status);
-
-    await cleanupTenants(["public-route-test@sentineltest.com"]);
+      // 201 or 409 both mean the route was reached without auth
+      expect([201, 409]).toContain(res.status);
+    } finally {
+      await cleanupTenants(["public-route-test@sentineltest.com"]);
+    }
   });
 
   it("attaches tenantId to context correctly", async () => {

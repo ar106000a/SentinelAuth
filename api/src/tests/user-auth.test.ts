@@ -5,7 +5,10 @@ import { users, otpTokens } from "../db/schema/index.js";
 import { eq, and } from "drizzle-orm";
 import { seedTenant, cleanupTenants } from "./utils/seed.js";
 import { generateOtp } from "../utils/crypto.js";
-import type { LoginResponse, RefreshResponse } from "@sentinelauth/types";
+import type {
+  LoginSuccessResponse,
+  RefreshResponse,
+} from "@sentinelauth/types";
 import type { ApiSuccessResponse } from "@sentinelauth/types";
 
 vi.mock("../services/email.service.js", () => ({
@@ -83,9 +86,9 @@ beforeAll(async () => {
     })
   );
 
-  const body = (await res.json()) as ApiSuccessResponse<LoginResponse>;
-  accessToken = body.data.accessToken!;
-  refreshToken = body.data.refreshToken!;
+  const body = (await res.json()) as ApiSuccessResponse<LoginSuccessResponse>;
+  accessToken = body.data.accessToken;
+  refreshToken = body.data.refreshToken;
 });
 
 afterAll(async () => {

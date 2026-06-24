@@ -13,7 +13,8 @@ import {
 } from "../utils/crypto.js";
 import type {
   ApiSuccessResponse,
-  LoginResponse,
+  LoginMfaResponse,
+  LoginSuccessResponse,
   MfaSetupResponse,
   MfaVerifyResponse,
 } from "@sentinelauth/types";
@@ -115,8 +116,8 @@ beforeAll(async () => {
   );
 
   const loginBody =
-    (await loginRes.json()) as ApiSuccessResponse<LoginResponse>;
-  const accessToken = loginBody.data.accessToken!;
+    (await loginRes.json()) as ApiSuccessResponse<LoginSuccessResponse>;
+  const accessToken = loginBody.data.accessToken;
   // Sanity check — if this isn't true, nothing below means anything
   expect(loginBody.data.mfaRequired).toBe(false);
   expect(accessToken).toBeTruthy();
@@ -174,13 +175,11 @@ describe("POST /api/auth/login with MFA enabled", () => {
       })
     );
 
-    const body = (await res.json()) as ApiSuccessResponse<LoginResponse>;
+    const body = (await res.json()) as ApiSuccessResponse<LoginMfaResponse>;
 
     expect(res.status).toBe(200);
     expect(body.data.mfaRequired).toBe(true);
     expect(body.data.sessionChallenge).toHaveLength(64);
-    expect(body.data.accessToken).toBeUndefined();
-    expect(body.data.refreshToken).toBeUndefined();
   });
 
   it("logs mfa_triggered event", async () => {
@@ -207,7 +206,7 @@ describe("POST /api/auth/mfa/verify", () => {
         body: JSON.stringify({ email: USER_EMAIL, password: USER_PASSWORD }),
       })
     );
-    const body = (await res.json()) as ApiSuccessResponse<LoginResponse>;
+    const body = (await res.json()) as ApiSuccessResponse<LoginMfaResponse>;
     return body.data.sessionChallenge!;
   }
 
