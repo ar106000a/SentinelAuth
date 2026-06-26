@@ -114,7 +114,19 @@ async def infer(features: LoginFeatures) -> InferenceResult:
         if model is not None:
             # Real inference — Week 7 wires this in fully
             import xgboost as xgb
-            dmatrix = xgb.DMatrix(feature_vector.reshape(1, -1))
+            
+            # 1. Define the exact feature names your model expects
+            feature_names = [
+                "hour_sin", "hour_cos", "hour_frequency_score", 
+                "geo_velocity_normalized", "is_new_device", 
+                "velocity_anomaly", "has_fingerprint", "geo_available"
+            ]
+            
+            # 2. Reshape the vector and explicitly pass feature_names to DMatrix
+            dmatrix = xgb.DMatrix(
+                feature_vector.reshape(1, -1), 
+                feature_names=feature_names
+            )
             risk_score = float(model.predict(dmatrix)[0])
             risk_score = max(0.0, min(1.0, risk_score))
         else:
