@@ -98,4 +98,6 @@ export const env = data as {
   JWT_REFRESH_SECRET: string;
   COOKIE_SECRET: string;
   COOKIE_DOMAIN: string;
+  AI_ENGINE_TIMEOUT_MS:number;
+  AI_ENGINE_URL:string;
 };
