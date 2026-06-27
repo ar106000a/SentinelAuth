@@ -15,6 +15,7 @@ export const verifyUserEmailSchema = z.object({
 export const loginUserSchema = z.object({
   email: z.email().toLowerCase().trim(),
   password: z.string().min(1, "Password is required"),
+  fingerprint: z.string().optional(),
 });
 
 export const userForgotPasswordSchema = z.object({

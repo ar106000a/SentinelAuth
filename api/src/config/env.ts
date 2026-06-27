@@ -48,6 +48,8 @@ const envSchema = z.object({
     .min(64, "JWT_REFRESH_SECRET must be at least 64 chars"),
   COOKIE_SECRET: z.string().min(64, "COOKIE_SECRET must be at least 64 chars"),
   COOKIE_DOMAIN: z.string().default("localhost"),
+  AI_ENGINE_URL: z.url().default("http://localhost:8000"),
+  AI_ENGINE_TIMEOUT_MS: z.coerce.number().default(5000),
 });
 
 const parsed = envSchema.safeParse(process.env); //we dont use parse() here because if there is an error, it screams out loud unless we wrap a try catch block around it...safeParse() returns a plain object indicating inside whether the validation succeeded or not

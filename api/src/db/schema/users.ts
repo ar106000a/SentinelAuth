@@ -1,5 +1,6 @@
 import { pgTable, uuid, text, timestamp, boolean } from "drizzle-orm/pg-core";
 import { tenants } from "./tenants";
+import { jsonb } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -15,6 +16,7 @@ export const users = pgTable("users", {
   lastLoginIp: text("last_login_ip"),
   lastLoginLat: text("last_login_lat"),
   lastLoginLng: text("last_login_lng"),
+  loginHourProfile: jsonb("login_hour_profile"), // nullable, 24-element number array
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

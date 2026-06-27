@@ -88,6 +88,7 @@ auth.post("/login", async (c) => {
   const tenantId = c.get("tenantId");
   const ip =
     c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "unknown";
+  const userAgent = c.req.header("user-agent") ?? "unknown";
   const body = await c.req.json().catch(() => {
     throw new ValidationError("Request body must be a valid json.");
   });
@@ -104,6 +105,8 @@ auth.post("/login", async (c) => {
       email: parsed.data.email,
       password: parsed.data.password,
       ipAddress: ip,
+      userAgent,
+      fingerprint: parsed.data.fingerprint ?? null,
     });
     return successResponse(c, result, 200);
   } catch (error) {

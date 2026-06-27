@@ -19,12 +19,15 @@ import {
 } from "../utils/jwt";
 import { env } from "../config/env";
 import { randomBytes } from "crypto";
+import { assembleFeatureVector, getRiskScore } from "./risk.service";
 
 export interface LoginInput {
   tenantId: string;
   email: string;
   password: string;
   ipAddress?: string;
+  fingerprint?: string | null;
+  userAgent?: string;
 }
 export interface LoginOutput {
   accessToken?: string;
@@ -35,7 +38,8 @@ export interface LoginOutput {
 }
 
 export async function loginUser(input: LoginInput): Promise<LoginOutput> {
-  const { tenantId, email, password, ipAddress } = input;
+  const { tenantId, email, password, ipAddress, userAgent, fingerprint } =
+    input;
 
   let mfaRequired = false;
   let sessionChallengeOut: string | undefined;
@@ -81,7 +85,30 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
       throw new AuthenticationError("Invalid email or password.");
     }
 
-    if (user.mfaEnabled) {
+    const loginHour = new Date().getUTCHours();
+    const featureVector = assembleFeatureVector({
+      ipAddress: ipAddress ?? "unknown",
+      userAgent: userAgent ?? "unknown",
+      fingerprint: fingerprint ?? null,
+      loginHour,
+      hourFrequencyScore: computeHourFrequencyScore(
+        user.loginHourProfile as number[] | null,
+        loginHour
+      ),
+      geoLat: user.lastLoginLat ? parseFloat(user.lastLoginLat) : null,
+      geoLng: user.lastLoginLng ? parseFloat(user.lastLoginLng) : null,
+      geoVelocityKmh: 0.0,
+      isNewDevice: false,
+      velocityAnomaly: false,
+    });
+
+    const failOpen = (tenant.settings?.failOpen as boolean) ?? true;
+    const riskScore = await getRiskScore(featureVector, failOpen);
+    const riskThreshold = (tenant.settings?.riskThreshold as number) ?? 0.7;
+
+    const requiresMfa = user.mfaEnabled || riskScore >= riskThreshold;
+
+    if (requiresMfa) {
       //Creating session challenge - random token not a jwt
       const sessionChallenge = randomBytes(32).toString("hex");
       const challengeHash = sha256(sessionChallenge);
@@ -99,8 +126,10 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
         tenantId,
         userId: user.id,
         eventType: "mfa_triggered",
+        riskScore,
         mfaTriggered: true,
         ipAddress: ipAddress ?? null,
+        features: featureVector as unknown as Record<string, number>,
       });
 
       mfaRequired = true;
@@ -164,6 +193,23 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
       userAgent: null, // Phase 3 will wire this in
       fingerprint: null, // Phase 3 will wire this in
     });
+
+    // Update login hour profile
+    const currentProfile =
+      (user.loginHourProfile as number[] | null) ?? new Array(24).fill(0);
+    currentProfile[loginHour] = (currentProfile[loginHour] ?? 0) + 1;
+
+    await tenantDb
+      .update(schema.users)
+      .set({
+        lastLoginAt: new Date(),
+        lastLoginIp: ipAddress ?? null,
+        lastLoginLat: null,
+        lastLoginLng: null,
+        loginHourProfile: currentProfile,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.users.id, user.id));
   });
   return {
     accessToken: accessToken!,
@@ -314,4 +360,17 @@ export async function logFailedLogin(
     mfaTriggered: false,
     ipAddress: null,
   });
+}
+function computeHourFrequencyScore(
+  profile: number[] | null,
+  currentHour: number
+): number {
+  // Cold start — no login history yet
+  if (!profile || profile.length !== 24) return 0.5;
+
+  const total = profile.reduce((sum, count) => sum + count, 0);
+  if (total === 0) return 0.5;
+
+  // Frequency of logins at this hour as a fraction of all logins
+  return profile[currentHour] / total;
 }
