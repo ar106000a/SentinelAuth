@@ -39,6 +39,11 @@ import {
   mfaDisableSchema,
   mfaVerifySchema,
 } from "../validators/mfa.validator";
+import { credentialStuffingGuard } from "../middleware/credential-stuffing";
+import {
+  recordFailedAttempt,
+  recordSuccessfulLogin,
+} from "../lib/credential-stuffing";
 
 const auth = new Hono();
 auth.post("/register", async (c) => {
@@ -84,7 +89,7 @@ auth.post("/verify-email", async (c) => {
   return successResponse(c, result, 200);
 });
 
-auth.post("/login", async (c) => {
+auth.post("/login", credentialStuffingGuard, async (c) => {
   const tenantId = c.get("tenantId");
   const ip =
     c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "unknown";
@@ -108,6 +113,8 @@ auth.post("/login", async (c) => {
       userAgent,
       fingerprint: parsed.data.fingerprint ?? null,
     });
+    await recordSuccessfulLogin(ip);
+
     return successResponse(c, result, 200);
   } catch (error) {
     //log failed attempt before re-throwing
@@ -115,6 +122,7 @@ auth.post("/login", async (c) => {
       error instanceof AuthenticationError ||
       error instanceof ForbiddenError
     ) {
+      await recordFailedAttempt(ip, parsed.data.email);
       await logFailedLogin(tenantId);
     }
     throw error;
