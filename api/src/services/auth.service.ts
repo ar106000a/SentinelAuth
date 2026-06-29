@@ -215,7 +215,7 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
       })
       .where(eq(schema.users.id, user.id));
 
-    // userId = user.id;
+    userId = user.id;
     // console.log("Refresh token here in the response body: ", refreshToken);
     // Log successful login
     await tenantDb.insert(schema.riskLogs).values({
@@ -250,8 +250,8 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
   });
 
   return {
-    accessToken: accessToken!,
-    refreshToken: refreshToken!,
+    accessToken: accessToken,
+    refreshToken: refreshToken,
     mfaRequired,
     sessionChallenge: sessionChallengeOut,
     userId: userId!,
