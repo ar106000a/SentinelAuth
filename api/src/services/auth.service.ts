@@ -20,6 +20,11 @@ import {
 import { env } from "../config/env";
 import { randomBytes } from "crypto";
 import { assembleFeatureVector, getRiskScore } from "./risk.service";
+import {
+  clearVelocityFlag,
+  isVelocityAnomalyFlagged,
+  recordLoginAttempt,
+} from "../lib/velocity-anomaly";
 
 export interface LoginInput {
   tenantId: string;
@@ -85,6 +90,36 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
       throw new AuthenticationError("Invalid email or password.");
     }
 
+    // 6. Record login attempt for velocity anomaly detection
+    //    and check if anomaly flag is already set for this user
+    const [velocityAnomaly, existingFlag] = await Promise.all([
+      recordLoginAttempt(tenantId, user.id, ipAddress ?? "unknown"),
+      isVelocityAnomalyFlagged(tenantId, user.id),
+    ]);
+    const hasVelocityAnomaly = velocityAnomaly || existingFlag;
+
+    if (hasVelocityAnomaly && !velocityAnomaly) {
+      // Flag was already set from a previous window — log it
+      await tenantDb.insert(schema.riskLogs).values({
+        tenantId,
+        userId: user.id,
+        eventType: "velocity_anomaly_detected",
+        mfaTriggered: false,
+        ipAddress: ipAddress ?? null,
+      });
+    }
+
+    if (velocityAnomaly) {
+      // Just triggered — log the detection event
+      await tenantDb.insert(schema.riskLogs).values({
+        tenantId,
+        userId: user.id,
+        eventType: "velocity_anomaly_detected",
+        mfaTriggered: false,
+        ipAddress: ipAddress ?? null,
+      });
+    }
+
     const loginHour = new Date().getUTCHours();
     const featureVector = assembleFeatureVector({
       ipAddress: ipAddress ?? "unknown",
@@ -99,7 +134,7 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
       geoLng: user.lastLoginLng ? parseFloat(user.lastLoginLng) : null,
       geoVelocityKmh: 0.0,
       isNewDevice: false,
-      velocityAnomaly: false,
+      velocityAnomaly: hasVelocityAnomaly,
     });
 
     const failOpen = (tenant.settings?.failOpen as boolean) ?? true;
@@ -180,7 +215,7 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
       })
       .where(eq(schema.users.id, user.id));
 
-    userId = user.id;
+    // userId = user.id;
     // console.log("Refresh token here in the response body: ", refreshToken);
     // Log successful login
     await tenantDb.insert(schema.riskLogs).values({
@@ -210,7 +245,10 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
         updatedAt: new Date(),
       })
       .where(eq(schema.users.id, user.id));
+
+    await clearVelocityFlag(tenantId, user.id);
   });
+
   return {
     accessToken: accessToken!,
     refreshToken: refreshToken!,
