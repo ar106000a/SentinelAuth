@@ -204,6 +204,7 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
       sessionId: session.id,
     });
 
+    // const currentLocation=lookupIp(ipAddress ?? "unknown");
     await tenantDb
       .update(schema.users)
       .set({
