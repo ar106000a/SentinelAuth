@@ -339,4 +339,84 @@ describe("POST /api/auth/login", () => {
     const totalLogins = profile.reduce((sum, count) => sum + count, 0);
     expect(totalLogins).toBeGreaterThan(0);
   });
+
+  it("records lastLoginLat and lastLoginLng on successful login from known IP", async () => {
+    const res = await app.fetch(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "x-forwarded-for": "8.8.8.8", // Google DNS — resolves to US
+        },
+        body: JSON.stringify({
+          email: "verified-login@example.com",
+          password: "SecurePass!123",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(200);
+
+    const [user] = await adminDb
+      .select({
+        lastLoginIp: users.lastLoginIp,
+        lastLoginLat: users.lastLoginLat,
+        lastLoginLng: users.lastLoginLng,
+      })
+      .from(users)
+      .where(
+        and(
+          eq(users.tenantId, tenantId),
+          eq(users.email, "verified-login@example.com")
+        )
+      );
+
+    expect(user.lastLoginIp).toBe("8.8.8.8");
+    // Should now have real coordinates, not null
+    expect(user.lastLoginLat).not.toBeNull();
+    expect(user.lastLoginLng).not.toBeNull();
+
+    // Valid coordinate ranges
+    const lat = parseFloat(user.lastLoginLat!);
+    const lng = parseFloat(user.lastLoginLng!);
+    expect(lat).toBeGreaterThanOrEqual(-90);
+    expect(lat).toBeLessThanOrEqual(90);
+    expect(lng).toBeGreaterThanOrEqual(-180);
+    expect(lng).toBeLessThanOrEqual(180);
+  });
+
+  it("stores null lat/lng for unresolvable IP", async () => {
+    const res = await app.fetch(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          // No x-forwarded-for — falls back to "unknown"
+        },
+        body: JSON.stringify({
+          email: "verified-login@example.com",
+          password: "SecurePass!123",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(200);
+
+    const [user] = await adminDb
+      .select({
+        lastLoginLat: users.lastLoginLat,
+        lastLoginLng: users.lastLoginLng,
+      })
+      .from(users)
+      .where(
+        and(
+          eq(users.tenantId, tenantId),
+          eq(users.email, "verified-login@example.com")
+        )
+      );
+
+    // "unknown" IP doesn't resolve — null is correct
+    expect(user.lastLoginLat).toBeNull();
+    expect(user.lastLoginLng).toBeNull();
+  });
 });

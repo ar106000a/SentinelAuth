@@ -19,6 +19,7 @@ import {
 } from "../utils/crypto";
 import { hashToken, signJwt, signRefreshToken } from "../utils/jwt";
 import { env } from "../config/env";
+import { lookupIp } from "../lib/geoip";
 export interface MfaSetupOutput {
   secret: string;
   qrCodeDataUri: string;
@@ -265,6 +266,13 @@ export async function verifyMfaChallenge(
       .set({ usedAt: new Date() })
       .where(eq(otpTokens.id, token.id));
 
+    const currentLocation = lookupIp(ipAddress ?? "unknown");
+
+    const currentProfile =
+      (user.loginHourProfile as number[] | null) ?? new Array(24).fill(0);
+    const loginHour = new Date().getUTCHours();
+    currentProfile[loginHour] = (currentProfile[loginHour] ?? 0) + 1;
+
     //Issuing tokens
     accessToken = signJwt(
       {
@@ -302,8 +310,9 @@ export async function verifyMfaChallenge(
       .set({
         lastLoginAt: new Date(),
         lastLoginIp: ipAddress ?? null,
-        lastLoginLat: null,
-        lastLoginLng: null,
+        lastLoginLat: currentLocation ? currentLocation.lat.toString() : null,
+        lastLoginLng: currentLocation ? currentLocation.lng.toString() : null,
+        loginHourProfile: currentProfile,
         updatedAt: new Date(),
       })
       .where(eq(users.id, user.id));

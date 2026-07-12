@@ -25,6 +25,7 @@ import {
   isVelocityAnomalyFlagged,
   recordLoginAttempt,
 } from "../lib/velocity-anomaly";
+import { lookupIp } from "../lib/geoip";
 
 export interface LoginInput {
   tenantId: string;
@@ -89,6 +90,20 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
     if (!passwordValid) {
       throw new AuthenticationError("Invalid email or password.");
     }
+
+    // ── Resolve location EARLY — before feature vector and before update ──
+    // currentLocation = where this login is coming FROM right now
+    // user.lastLoginLat/Lng = where they logged in LAST TIME (still old values)
+    const currentLocation = lookupIp(ipAddress ?? "unknown");
+
+    // Capture old location explicitly — Wednesday's velocity calc needs these
+    const previousLat = user.lastLoginLat
+      ? parseFloat(user.lastLoginLat)
+      : null;
+    const previousLng = user.lastLoginLng
+      ? parseFloat(user.lastLoginLng)
+      : null;
+    const previousLoginAt = user.lastLoginAt;
 
     // 6. Record login attempt for velocity anomaly detection
     //    and check if anomaly flag is already set for this user
@@ -204,17 +219,10 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
       sessionId: session.id,
     });
 
-    // const currentLocation=lookupIp(ipAddress ?? "unknown");
-    await tenantDb
-      .update(schema.users)
-      .set({
-        lastLoginAt: new Date(),
-        lastLoginIp: ipAddress ?? null,
-        lastLoginLat: null,
-        lastLoginLng: null,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.users.id, user.id));
+    //Update Login Hour Profile
+    const currentProfile =
+      (user.loginHourProfile as number[] | null) ?? new Array(24).fill(0);
+    currentProfile[loginHour] = (currentProfile[loginHour] ?? 0) + 1;
 
     userId = user.id;
     // console.log("Refresh token here in the response body: ", refreshToken);
@@ -230,18 +238,13 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
       fingerprint: null, // Phase 3 will wire this in
     });
 
-    // Update login hour profile
-    const currentProfile =
-      (user.loginHourProfile as number[] | null) ?? new Array(24).fill(0);
-    currentProfile[loginHour] = (currentProfile[loginHour] ?? 0) + 1;
-
     await tenantDb
       .update(schema.users)
       .set({
         lastLoginAt: new Date(),
         lastLoginIp: ipAddress ?? null,
-        lastLoginLat: null,
-        lastLoginLng: null,
+        lastLoginLat: currentLocation ? currentLocation.lat.toString() : null,
+        lastLoginLng: currentLocation ? currentLocation.lng.toString() : null,
         loginHourProfile: currentProfile,
         updatedAt: new Date(),
       })
