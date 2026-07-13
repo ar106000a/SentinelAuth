@@ -26,6 +26,7 @@ import {
   recordLoginAttempt,
 } from "../lib/velocity-anomaly";
 import { lookupIp } from "../lib/geoip";
+import { computeGeoVelocity, isImpossibleTravel } from "../lib/geo-velocity";
 
 export interface LoginInput {
   tenantId: string;
@@ -105,6 +106,31 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
       : null;
     const previousLoginAt = user.lastLoginAt;
 
+    const geoVelocityKmh = computeGeoVelocity(
+      previousLat,
+      previousLng,
+      previousLoginAt,
+      currentLocation?.lat ?? null,
+      currentLocation?.lng ?? null
+    );
+    const impossibleTravel = isImpossibleTravel(geoVelocityKmh);
+
+    if (impossibleTravel) {
+      await adminDb.insert(schema.riskLogs).values({
+        tenantId,
+        userId: user.id,
+        eventType: "impossible_travel_detected",
+        mfaTriggered: false,
+        ipAddress: ipAddress ?? null,
+        features: {
+          geo_velocity_kmh: geoVelocityKmh,
+          previous_lat: previousLat,
+          previous_lng: previousLng,
+          current_lat: currentLocation?.lat ?? null,
+          current_lng: currentLocation?.lng ?? null,
+        } as unknown as Record<string, number>,
+      });
+    }
     // 6. Record login attempt for velocity anomaly detection
     //    and check if anomaly flag is already set for this user
     const [velocityAnomaly, existingFlag] = await Promise.all([
