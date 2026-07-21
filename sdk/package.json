@@ -1,16 +1,32 @@
 {
   "name": "@sentinelauth/sdk",
-  "version": "0.0.1",
+  "version": "0.1.0",
+  "description": "Official SDK for SentinelAuth — adaptive, AI-powered authentication",
   "main": "dist/index.js",
+  "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix"
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "typecheck": "pnpm --filter @sentinelauth/types build && tsc --noEmit",
+    "test": "vitest run"
   },
+  "keywords": [
+    "authentication",
+    "auth",
+    "mfa",
+    "security"
+  ],
+  "license": "MIT",
   "devDependencies": {
-    "typescript": "^5.8.0"
+    "tsup": "^8.5.1",
+    "typescript": "^5.4.0",
+    "vitest": "^2.1.9"
+  },
+  "dependencies": {
+    "@sentinelauth/types": "workspace:*"
   }
 }

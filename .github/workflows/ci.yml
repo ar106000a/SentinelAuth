@@ -116,3 +116,17 @@ jobs:
 
       - name: Run tests
         run: python -m pytest tests/ -v
+  
+  sdk-test:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - uses: pnpm/action-setup@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: pnpm
+    - run: pnpm install
+    - run: pnpm --filter @sentinelauth/types build
+    - run: pnpm --filter @sentinelauth/sdk typecheck
+    - run: pnpm --filter @sentinelauth/sdk test
