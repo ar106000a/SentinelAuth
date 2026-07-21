@@ -63,7 +63,10 @@ def generate_dataset(
         "hour_sin":               leg_hour_sin,
         "hour_cos":               leg_hour_cos,
         "hour_frequency_score":   rng.beta(5, 1.5, n_legitimate),  # skewed high
-        "geo_velocity_normalized": rng.exponential(0.01, n_legitimate).clip(0, 1),
+        "geo_velocity_normalized": np.concatenate([
+    rng.exponential(0.01, int(n_legitimate * 0.95)).clip(0, 0.3),  # normal — same city/region
+    rng.uniform(0.05, 0.25, n_legitimate - int(n_legitimate * 0.95)),  # legitimate travel (flights)
+]),
         "is_new_device":          rng.choice([0, 1], n_legitimate, p=[0.92, 0.08]),
         "velocity_anomaly":       rng.choice([0, 1], n_legitimate, p=[0.97, 0.03]),
         "has_fingerprint":        rng.choice([0, 1], n_legitimate, p=[0.05, 0.95]),
@@ -107,7 +110,8 @@ def generate_dataset(
         "hour_sin":               b_hour_sin,
         "hour_cos":               b_hour_cos,
         "hour_frequency_score":   rng.beta(1.5, 4, n_b),
-        "geo_velocity_normalized": rng.beta(2, 1, n_b).clip(0.2, 1.0),  # high velocity
+        "geo_velocity_normalized": np.concatenate([rng.beta(2, 3, n_b//2).clip(0.1, 0.4), #moderate hop(vpn)
+                                                    rng.beta(5,1,n_b-n_b//2).clip(0.5,1.0)]),  # extreme(impossible travel)
         "is_new_device":          rng.choice([0, 1], n_b, p=[0.3, 0.7]),
         "velocity_anomaly":       rng.choice([0, 1], n_b, p=[0.4, 0.6]),
         "has_fingerprint":        rng.choice([0, 1], n_b, p=[0.4, 0.6]),

@@ -1,3 +1,5 @@
+// import { adminDb } from "../db/index.js";
+// import { riskLogs } from "../db/schema/risk-logs.js";
 import { redis } from "./redis.js";
 
 // Configuration
@@ -53,6 +55,15 @@ export async function recordFailedAttempt(
 
     // Clean up the counter — no point keeping it while blocked
     await redis.del(key);
+
+    // Log the detection event — use adminDb so it survives any transaction context
+    // await adminDb.insert(riskLogs).values({
+    //   tenantId: "system",  // IP-level event, no specific tenant
+    //   userId: null,
+    //   eventType: "credential_stuffing_detected",
+    //   mfaTriggered: false,
+    //   ipAddress: ip,
+    // });
   }
 }
 

@@ -173,7 +173,7 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
       ),
       geoLat: user.lastLoginLat ? parseFloat(user.lastLoginLat) : null,
       geoLng: user.lastLoginLng ? parseFloat(user.lastLoginLng) : null,
-      geoVelocityKmh: 0.0,
+      geoVelocityKmh: geoVelocityKmh,
       isNewDevice: false,
       velocityAnomaly: hasVelocityAnomaly,
     });

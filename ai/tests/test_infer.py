@@ -232,3 +232,35 @@ def test_model_version_is_xgboost_when_loaded(client):
 
     assert body["model_loaded"] is True
     assert body["model_version"] == "xgboost-v1"
+
+def test_model_separates_impossible_travel_from_normal(client):
+    import os
+    from main import MODEL_PATH
+
+    if not os.path.exists(MODEL_PATH) or os.path.getsize(MODEL_PATH) == 0:
+        pytest.skip("No trained model — skipping separation test")
+
+    # Legitimate — genuinely low velocity, same-region login
+    legitimate_travel = base_features(
+        login_hour=14,
+        hour_frequency_score=0.6,
+        is_new_device=0,
+        velocity_anomaly=0,
+        geo_velocity_kmh=50.0,  # local travel, not near threshold
+        fingerprint="knowndevice123",
+    )
+
+    # Impossible travel — well above threshold
+    impossible_travel = base_features(
+        login_hour=14,
+        hour_frequency_score=0.6,
+        is_new_device=0,
+        velocity_anomaly=0,
+        geo_velocity_kmh=5000.0,
+        fingerprint="knowndevice123",
+    )
+
+    leg_res = client.post("/infer", json=legitimate_travel).json()
+    imp_res = client.post("/infer", json=impossible_travel).json()
+
+    assert imp_res["risk_score"] > leg_res["risk_score"]

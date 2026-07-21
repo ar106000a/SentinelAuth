@@ -1,11 +1,11 @@
 {
-  "auc_roc": 1.0,
-  "fpr": 0.0006,
-  "fnr": 0.002,
+  "auc_roc": 0.9999,
+  "fpr": 0.0011,
+  "fnr": 0.008,
   "threshold": 0.7,
-  "true_positives": 1497,
-  "true_negatives": 8495,
-  "false_positives": 5,
-  "false_negatives": 3,
-  "best_iteration": 168
+  "true_positives": 1488,
+  "true_negatives": 8491,
+  "false_positives": 9,
+  "false_negatives": 12,
+  "best_iteration": 88
 }
