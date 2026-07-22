@@ -1,10 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+vi.mock("@fingerprintjs/fingerprintjs", () => ({
+  default: {
+    load: vi.fn(),
+  },
+}));
 import { SentinelAuth } from "./index.js";
+import FingerprintJS from "@fingerprintjs/fingerprintjs";
+import { clearFingerprintCache } from "./fingerprint.js";
 
 const originalFetch = global.fetch;
 
 beforeEach(() => {
   global.fetch = vi.fn();
+  clearFingerprintCache();
+  vi.mocked(FingerprintJS.load).mockReset();
+  vi.mocked(FingerprintJS.load).mockResolvedValue({
+    get: vi.fn().mockResolvedValue({ visitorId: "default-test-fingerprint" }),
+  });
 });
 
 afterEach(() => {
@@ -85,5 +97,56 @@ describe("SentinelAuth", () => {
     const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock
       .calls[0];
     expect(options.headers["X-User-Token"]).toBe("some-jwt-token");
+  });
+  it("login sends fingerprint in request body", async () => {
+    vi.mocked(FingerprintJS.load).mockResolvedValueOnce({
+      get: vi.fn().mockResolvedValue({ visitorId: "sdk-test-fingerprint" }),
+    });
+
+    mockFetchResponse({
+      success: true,
+      data: {
+        accessToken: "jwt",
+        refreshToken: "rt",
+        mfaRequired: false,
+        userId: "u1",
+      },
+    });
+
+    const sdk = new SentinelAuth({
+      apiUrl: "https://api.example.com",
+      publicKey: "key",
+    });
+    await sdk.login("user@example.com", "password123");
+
+    const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock
+      .calls[0];
+    const body = JSON.parse(options.body);
+    expect(body.fingerprint).toBe("sdk-test-fingerprint");
+  });
+
+  it("login sends null fingerprint if FingerprintJS fails", async () => {
+    vi.mocked(FingerprintJS.load).mockRejectedValueOnce(new Error("blocked"));
+
+    mockFetchResponse({
+      success: true,
+      data: {
+        accessToken: "jwt",
+        refreshToken: "rt",
+        mfaRequired: false,
+        userId: "u1",
+      },
+    });
+
+    const sdk = new SentinelAuth({
+      apiUrl: "https://api.example.com",
+      publicKey: "key",
+    });
+    await sdk.login("user@example.com", "password123");
+
+    const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock
+      .calls[0];
+    const body = JSON.parse(options.body);
+    expect(body.fingerprint).toBeNull();
   });
 });

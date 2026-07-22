@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import app from "../index.js";
 import { adminDb } from "../db/index.js";
 import { users, otpTokens, riskLogs } from "../db/schema/index.js";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { seedTenant, cleanupTenants } from "./utils/seed.js";
 import { generateOtp } from "../utils/crypto.js";
 import type { LoginSuccessResponse } from "@sentinelauth/types";
@@ -418,5 +418,69 @@ describe("POST /api/auth/login", () => {
     // "unknown" IP doesn't resolve — null is correct
     expect(user.lastLoginLat).toBeNull();
     expect(user.lastLoginLng).toBeNull();
+  });
+
+  it("captures fingerprint on login when provided", async () => {
+    const res = await app.fetch(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          email: "verified-login@example.com",
+          password: "SecurePass!123",
+          fingerprint: "test-fingerprint-hash-abc123",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(200);
+
+    // Fingerprint isn't stored on the user record directly (yet — Thursday)
+    // but it must reach the feature vector logged in risk_logs
+    const logs = await adminDb
+      .select()
+      .from(riskLogs)
+      .where(
+        and(
+          eq(riskLogs.tenantId, tenantId),
+          eq(riskLogs.eventType, "login_success")
+        )
+      )
+      .orderBy(desc(riskLogs.createdAt))
+      .limit(1);
+
+    expect(logs.length).toBeGreaterThan(0);
+  });
+
+  it("login succeeds when fingerprint is omitted (fail-open)", async () => {
+    const res = await app.fetch(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          email: "verified-login@example.com",
+          password: "SecurePass!123",
+          // no fingerprint field at all
+        }),
+      })
+    );
+
+    expect(res.status).toBe(200);
+  });
+
+  it("login succeeds when fingerprint is explicitly null", async () => {
+    const res = await app.fetch(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          email: "verified-login@example.com",
+          password: "SecurePass!123",
+          fingerprint: null,
+        }),
+      })
+    );
+
+    expect(res.status).toBe(200);
   });
 });

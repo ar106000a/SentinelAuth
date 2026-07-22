@@ -6,6 +6,7 @@ import type {
   LoginResponse,
   RefreshResponse,
 } from "@sentinelauth/types";
+import { getDeviceFingerprint, tryGetDeviceFingerprint } from "./fingerprint.js";
 export {
   getDeviceFingerprint,
   tryGetDeviceFingerprint,
@@ -48,10 +49,11 @@ export class SentinelAuth {
   }
 
   async login(email: string, password: string): Promise<LoginResponse> {
+    const fingerprint = await tryGetDeviceFingerprint();
     return this.http.post<LoginResponse>("/api/auth/login", {
       email,
       password,
-      // fingerprint added Tuesday/Wednesday this week
+      fingerprint,
     });
   }
 
