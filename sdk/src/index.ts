@@ -1,12 +1,15 @@
 export const SDK_VERSION = "0.0.1";
 import { HttpClient, SentinelAuthConfig, SentinelAuthError } from "./client.js";
 import type {
-  ApiSuccessResponse,
   UserRegistrationResponse,
   UserVerifyEmailResponse,
   LoginResponse,
   RefreshResponse,
 } from "@sentinelauth/types";
+export {
+  getDeviceFingerprint,
+  tryGetDeviceFingerprint,
+} from "./fingerprint.js";
 
 export { SentinelAuthError };
 export type { SentinelAuthConfig };

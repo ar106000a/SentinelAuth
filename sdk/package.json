@@ -27,6 +27,7 @@
     "vitest": "^2.1.9"
   },
   "dependencies": {
+    "@fingerprintjs/fingerprintjs": "^5.2.0",
     "@sentinelauth/types": "workspace:*"
   }
 }
