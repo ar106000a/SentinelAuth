@@ -20,6 +20,7 @@ export const mfaVerifySchema = z.object({
     .string()
     .length(6, "Code must be exactly 6 digits")
     .regex(/^\d+$/, "Code must be numeric"),
+  fingerprint: z.string().nullable().optional(),
 });
 
 export type MfaVerifyInput = z.infer<typeof mfaVerifySchema>;

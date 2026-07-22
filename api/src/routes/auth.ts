@@ -309,6 +309,7 @@ auth.post("/mfa/verify", async (c) => {
     sessionChallenge: parsed.data.sessionChallenge,
     code: parsed.data.code,
     ipAddress: ip,
+    fingerprint: parsed.data.fingerprint ?? null,
   });
 
   return successResponse(c, result, 200);

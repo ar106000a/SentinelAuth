@@ -4,3 +4,4 @@ export * from "./users";
 export * from "./sessions";
 export * from "./otp-tokens";
 export * from "./risk-logs";
+export * from "./device-fingerprints";

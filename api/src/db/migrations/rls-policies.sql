@@ -30,3 +30,9 @@ ON users(tenant_id, email);
 
 CREATE INDEX otp_tokens_user_type_idx
 ON otp_tokens(user_id, type);
+
+ALTER TABLE device_fingerprints ENABLE ROW LEVEL SECURITY;
+ALTER TABLE device_fingerprints FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation ON device_fingerprints
+  USING (tenant_id = current_setting('app.current_tenant', true)::uuid);

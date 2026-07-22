@@ -27,6 +27,7 @@ import {
 } from "../lib/velocity-anomaly";
 import { lookupIp } from "../lib/geoip";
 import { computeGeoVelocity, isImpossibleTravel } from "../lib/geo-velocity";
+import { checkAndRecordDeviceFingerprint } from "./device-fingerprint.service.js";
 
 export interface LoginInput {
   tenantId: string;
@@ -131,6 +132,15 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
         } as unknown as Record<string, number>,
       });
     }
+
+    // Device fingerprint check (today)
+    const isNewDevice = await checkAndRecordDeviceFingerprint(
+      client,
+      tenantId,
+      user.id,
+      fingerprint ?? null
+    );
+
     // 6. Record login attempt for velocity anomaly detection
     //    and check if anomaly flag is already set for this user
     const [velocityAnomaly, existingFlag] = await Promise.all([
@@ -174,7 +184,7 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
       geoLat: user.lastLoginLat ? parseFloat(user.lastLoginLat) : null,
       geoLng: user.lastLoginLng ? parseFloat(user.lastLoginLng) : null,
       geoVelocityKmh: geoVelocityKmh,
-      isNewDevice: false,
+      isNewDevice,
       velocityAnomaly: hasVelocityAnomaly,
     });
 

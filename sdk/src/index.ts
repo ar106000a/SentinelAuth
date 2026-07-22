@@ -6,7 +6,7 @@ import type {
   LoginResponse,
   RefreshResponse,
 } from "@sentinelauth/types";
-import { getDeviceFingerprint, tryGetDeviceFingerprint } from "./fingerprint.js";
+import { tryGetDeviceFingerprint } from "./fingerprint.js";
 export {
   getDeviceFingerprint,
   tryGetDeviceFingerprint,

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import app from "../index.js";
 import { adminDb } from "../db/index.js";
-import { users, otpTokens, riskLogs } from "../db/schema/index.js";
+import { users, otpTokens, riskLogs, deviceFingerprints } from "../db/schema/index.js";
 import { eq, and, desc } from "drizzle-orm";
 import { seedTenant, cleanupTenants } from "./utils/seed.js";
 import { generateOtp } from "../utils/crypto.js";
@@ -482,5 +482,64 @@ describe("POST /api/auth/login", () => {
     );
 
     expect(res.status).toBe(200);
+  });
+  it("marks first login from a fingerprint as new device in feature vector", async () => {
+    // We can't directly inspect the feature vector sent to the AI engine,
+    // but we can confirm the fingerprint gets recorded as a side effect
+    const uniqueFingerprint = `test-fp-${Date.now()}`;
+
+    await app.fetch(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          email: "verified-login@example.com",
+          password: "SecurePass!123",
+          fingerprint: uniqueFingerprint,
+        }),
+      })
+    );
+
+    const [record] = await adminDb
+      .select()
+      .from(deviceFingerprints)
+      .where(eq(deviceFingerprints.fingerprintHash, uniqueFingerprint));
+
+    expect(record).toBeTruthy();
+  });
+
+  it("second login with same fingerprint does not create duplicate record", async () => {
+    const uniqueFingerprint = `test-fp-repeat-${Date.now()}`;
+
+    await app.fetch(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          email: "verified-login@example.com",
+          password: "SecurePass!123",
+          fingerprint: uniqueFingerprint,
+        }),
+      })
+    );
+
+    await app.fetch(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          email: "verified-login@example.com",
+          password: "SecurePass!123",
+          fingerprint: uniqueFingerprint,
+        }),
+      })
+    );
+
+    const records = await adminDb
+      .select()
+      .from(deviceFingerprints)
+      .where(eq(deviceFingerprints.fingerprintHash, uniqueFingerprint));
+
+    expect(records).toHaveLength(1);
   });
 });

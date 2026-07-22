@@ -20,6 +20,7 @@ import {
 import { hashToken, signJwt, signRefreshToken } from "../utils/jwt";
 import { env } from "../config/env";
 import { lookupIp } from "../lib/geoip";
+import { checkAndRecordDeviceFingerprint } from "./device-fingerprint.service";
 export interface MfaSetupOutput {
   secret: string;
   qrCodeDataUri: string;
@@ -185,6 +186,7 @@ export interface MfaVerifyInput {
   sessionChallenge: string;
   code: string;
   ipAddress?: string;
+  fingerprint?: string | null;
 }
 
 export interface MfaVerifyOutput {
@@ -196,7 +198,7 @@ export interface MfaVerifyOutput {
 export async function verifyMfaChallenge(
   input: MfaVerifyInput
 ): Promise<MfaVerifyOutput> {
-  const { tenantId, sessionChallenge, code, ipAddress } = input;
+  const { tenantId, sessionChallenge, code, ipAddress, fingerprint } = input;
 
   const [tenant] = await schema.adminDb
     .select({ privateKeyEncrypted: tenants.privateKeyEncrypted })
@@ -273,6 +275,12 @@ export async function verifyMfaChallenge(
     const loginHour = new Date().getUTCHours();
     currentProfile[loginHour] = (currentProfile[loginHour] ?? 0) + 1;
 
+    await checkAndRecordDeviceFingerprint(
+      client,
+      tenantId,
+      user.id,
+      fingerprint ?? null
+    );
     //Issuing tokens
     accessToken = signJwt(
       {
