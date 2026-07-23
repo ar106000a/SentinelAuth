@@ -13,6 +13,7 @@ export {
 } from "./fingerprint.js";
 
 export { SentinelAuthError };
+export { SentinelAuthLoginElement } from "./components/login-form.js";
 export type { SentinelAuthConfig };
 
 export class SentinelAuth {
