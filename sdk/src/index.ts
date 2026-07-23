@@ -14,6 +14,7 @@ import type {
 export { SentinelAuthError };
 export type { SentinelAuthConfig };
 export { SentinelAuthLoginElement } from "./components/login-form.js";
+export { SentinelAuthOtpElement } from "./components/otp-input.js";
 
 export class SentinelAuth {
   private http: HttpClient;
