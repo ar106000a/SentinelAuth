@@ -1,33 +1,31 @@
-export const SDK_VERSION = "0.0.1";
 import { HttpClient, SentinelAuthConfig, SentinelAuthError } from "./client.js";
+import { tryGetDeviceFingerprint } from "./fingerprint.js";
 import type {
   UserRegistrationResponse,
   UserVerifyEmailResponse,
   LoginResponse,
   RefreshResponse,
+  ForgotPasswordResponse,
+  ResetPasswordResponse,
+  MfaSetupResponse,
+  MfaVerifyResponse,
 } from "@sentinelauth/types";
-import { tryGetDeviceFingerprint } from "./fingerprint.js";
-export {
-  getDeviceFingerprint,
-  tryGetDeviceFingerprint,
-} from "./fingerprint.js";
 
 export { SentinelAuthError };
-export { SentinelAuthLoginElement } from "./components/login-form.js";
 export type { SentinelAuthConfig };
+export { SentinelAuthLoginElement } from "./components/login-form.js";
 
 export class SentinelAuth {
   private http: HttpClient;
 
   constructor(config: SentinelAuthConfig) {
-    if (!config.apiUrl) {
-      throw new Error("SentinelAuth: apiUrl is required");
-    }
-    if (!config.publicKey) {
+    if (!config.apiUrl) throw new Error("SentinelAuth: apiUrl is required");
+    if (!config.publicKey)
       throw new Error("SentinelAuth: publicKey is required");
-    }
     this.http = new HttpClient(config);
   }
+
+  // ── Registration & verification ────────────────────────────────────────────
 
   async register(
     email: string,
@@ -49,6 +47,8 @@ export class SentinelAuth {
     });
   }
 
+  // ── Login lifecycle ─────────────────────────────────────────────────────────
+
   async login(email: string, password: string): Promise<LoginResponse> {
     const fingerprint = await tryGetDeviceFingerprint();
     return this.http.post<LoginResponse>("/api/auth/login", {
@@ -69,6 +69,71 @@ export class SentinelAuth {
   async refresh(refreshToken: string): Promise<RefreshResponse> {
     return this.http.post<RefreshResponse>("/api/auth/refresh", {
       refreshToken,
+    });
+  }
+
+  // ── Password reset ──────────────────────────────────────────────────────────
+
+  async forgotPassword(email: string): Promise<ForgotPasswordResponse> {
+    return this.http.post<ForgotPasswordResponse>("/api/auth/forgot-password", {
+      email,
+    });
+  }
+
+  async resetPassword(
+    email: string,
+    otp: string,
+    newPassword: string
+  ): Promise<ResetPasswordResponse> {
+    return this.http.post<ResetPasswordResponse>("/api/auth/reset-password", {
+      email,
+      otp,
+      newPassword,
+    });
+  }
+
+  // ── MFA setup & management (requires an authenticated access token) ────────
+
+  async setupMfa(accessToken: string): Promise<MfaSetupResponse> {
+    return this.http.post<MfaSetupResponse>(
+      "/api/auth/mfa/setup",
+      {},
+      { "X-User-Token": accessToken }
+    );
+  }
+
+  async enableMfa(
+    accessToken: string,
+    code: string
+  ): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>(
+      "/api/auth/mfa/enable",
+      { code },
+      { "X-User-Token": accessToken }
+    );
+  }
+
+  async disableMfa(
+    accessToken: string,
+    password: string,
+    code: string
+  ): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>(
+      "/api/auth/mfa/disable",
+      { password, code },
+      { "X-User-Token": accessToken }
+    );
+  }
+
+  // ── MFA login challenge completion (no access token yet — challenge itself is the credential) ──
+
+  async verifyMfa(
+    sessionChallenge: string,
+    code: string
+  ): Promise<MfaVerifyResponse> {
+    return this.http.post<MfaVerifyResponse>("/api/auth/mfa/verify", {
+      sessionChallenge,
+      code,
     });
   }
 }
