@@ -33,16 +33,16 @@ function mockFetchResponse(body: unknown, status = 200) {
 
 describe("SentinelAuth", () => {
   it("throws if apiUrl is missing", () => {
-    expect(() => new SentinelAuth({ apiUrl: "", publicKey: "key" })).toThrow(
+    expect(() => new SentinelAuth({ apiUrl: "", apiKey: "key" })).toThrow(
       "apiUrl is required"
     );
   });
 
-  it("throws if publicKey is missing", () => {
+  it("throws if apiKey is missing", () => {
     expect(
       () =>
-        new SentinelAuth({ apiUrl: "https://api.example.com", publicKey: "" })
-    ).toThrow("publicKey is required");
+        new SentinelAuth({ apiUrl: "https://api.example.com", apiKey: "" })
+    ).toThrow("apiKey is required");
   });
 
   it("register calls the correct endpoint", async () => {
@@ -50,7 +50,7 @@ describe("SentinelAuth", () => {
 
     const sdk = new SentinelAuth({
       apiUrl: "https://api.example.com",
-      publicKey: "key",
+      apiKey: "key",
     });
 
     await sdk.register("user@example.com", "password123");
@@ -77,7 +77,7 @@ describe("SentinelAuth", () => {
 
     const sdk = new SentinelAuth({
       apiUrl: "https://api.example.com",
-      publicKey: "key",
+      apiKey: "key",
     });
 
     const result = await sdk.login("user@example.com", "password123");
@@ -89,7 +89,7 @@ describe("SentinelAuth", () => {
 
     const sdk = new SentinelAuth({
       apiUrl: "https://api.example.com",
-      publicKey: "key",
+      apiKey: "key",
     });
 
     await sdk.logout("some-jwt-token");
@@ -115,7 +115,7 @@ describe("SentinelAuth", () => {
 
     const sdk = new SentinelAuth({
       apiUrl: "https://api.example.com",
-      publicKey: "key",
+      apiKey: "key",
     });
     await sdk.login("user@example.com", "password123");
 
@@ -140,7 +140,7 @@ describe("SentinelAuth", () => {
 
     const sdk = new SentinelAuth({
       apiUrl: "https://api.example.com",
-      publicKey: "key",
+      apiKey: "key",
     });
     await sdk.login("user@example.com", "password123");
 
@@ -161,7 +161,7 @@ describe("SentinelAuth", () => {
 
       const sdk = new SentinelAuth({
         apiUrl: "https://api.example.com",
-        publicKey: "key",
+        apiKey: "key",
       });
       const result = await sdk.forgotPassword("user@example.com");
 
@@ -183,7 +183,7 @@ describe("SentinelAuth", () => {
 
       const sdk = new SentinelAuth({
         apiUrl: "https://api.example.com",
-        publicKey: "key",
+        apiKey: "key",
       });
       await sdk.resetPassword("user@example.com", "123456", "NewPassword!123");
 
@@ -211,7 +211,7 @@ describe("SentinelAuth", () => {
 
       const sdk = new SentinelAuth({
         apiUrl: "https://api.example.com",
-        publicKey: "key",
+        apiKey: "key",
       });
 
       await expect(
@@ -232,7 +232,7 @@ describe("SentinelAuth", () => {
 
       const sdk = new SentinelAuth({
         apiUrl: "https://api.example.com",
-        publicKey: "key",
+        apiKey: "key",
       });
       const result = await sdk.setupMfa("some-access-token");
 
@@ -251,7 +251,7 @@ describe("SentinelAuth", () => {
 
       const sdk = new SentinelAuth({
         apiUrl: "https://api.example.com",
-        publicKey: "key",
+        apiKey: "key",
       });
       await sdk.enableMfa("some-access-token", "123456");
 
@@ -270,7 +270,7 @@ describe("SentinelAuth", () => {
 
       const sdk = new SentinelAuth({
         apiUrl: "https://api.example.com",
-        publicKey: "key",
+        apiKey: "key",
       });
       await sdk.disableMfa("some-access-token", "MyPassword!123", "123456");
 
@@ -295,7 +295,7 @@ describe("SentinelAuth", () => {
 
       const sdk = new SentinelAuth({
         apiUrl: "https://api.example.com",
-        publicKey: "key",
+        apiKey: "key",
       });
 
       await expect(
@@ -313,7 +313,7 @@ describe("SentinelAuth", () => {
 
       const sdk = new SentinelAuth({
         apiUrl: "https://api.example.com",
-        publicKey: "key",
+        apiKey: "key",
       });
       const result = await sdk.verifyMfa("a".repeat(64), "123456");
 
@@ -343,7 +343,7 @@ describe("SentinelAuth", () => {
 
       const sdk = new SentinelAuth({
         apiUrl: "https://api.example.com",
-        publicKey: "key",
+        apiKey: "key",
       });
 
       await expect(sdk.verifyMfa("a".repeat(64), "000000")).rejects.toThrow(
@@ -365,7 +365,7 @@ describe("SentinelAuth", () => {
 
       const sdk = new SentinelAuth({
         apiUrl: "https://api.example.com",
-        publicKey: "key",
+        apiKey: "key",
       });
 
       await expect(sdk.verifyMfa("a".repeat(64), "123456")).rejects.toThrow(

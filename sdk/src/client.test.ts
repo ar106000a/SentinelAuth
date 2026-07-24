@@ -23,7 +23,7 @@ function mockFetchResponse(body: unknown, status = 200) {
 describe("HttpClient", () => {
   const client = new HttpClient({
     apiUrl: "https://api.example.com",
-    publicKey: "test-secret-key",
+    apiKey: "test-secret-key",
   });
 
   it("sends Authorization header with Bearer prefix", async () => {
@@ -39,7 +39,7 @@ describe("HttpClient", () => {
   it("strips trailing slash from apiUrl", async () => {
     const trailingSlashClient = new HttpClient({
       apiUrl: "https://api.example.com/",
-      publicKey: "test-secret-key",
+      apiKey: "test-secret-key",
     });
 
     mockFetchResponse({ success: true, data: {} });
