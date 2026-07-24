@@ -13,17 +13,14 @@ import type {
 
 export { SentinelAuthError };
 export type { SentinelAuthConfig };
-export { SentinelAuthLoginElement } from "./components/login-form.js";
-export { SentinelAuthOtpElement } from "./components/otp-input.js";
-export { SentinelAuthFlowElement } from "./components/auth-flow.js";
 
 export class SentinelAuth {
   private http: HttpClient;
 
   constructor(config: SentinelAuthConfig) {
     if (!config.apiUrl) throw new Error("SentinelAuth: apiUrl is required");
-    if (!config.publicKey)
-      throw new Error("SentinelAuth: publicKey is required");
+    if (!config.apiKey)
+      throw new Error("SentinelAuth: apiKey is required");
     this.http = new HttpClient(config);
   }
 

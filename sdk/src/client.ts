@@ -1,6 +1,6 @@
 export interface SentinelAuthConfig {
   apiUrl: string;
-  publicKey: string; // the tenant's secretKey — used as Bearer token
+  apiKey: string; // the tenant's secretKey — used as Bearer token
 }
 
 export class SentinelAuthError extends Error {
@@ -20,7 +20,7 @@ export class HttpClient {
 
   constructor(config: SentinelAuthConfig) {
     this.baseUrl = config.apiUrl.replace(/\/$/, ""); // strip trailing slash
-    this.apiKey = config.publicKey;
+    this.apiKey = config.apiKey;
   }
 
   async post<TResponse>(
@@ -28,6 +28,15 @@ export class HttpClient {
     body: unknown,
     extraHeaders: Record<string, string> = {}
   ): Promise<TResponse> {
+    // console.log("DEBUG fetch args:", {
+    //   url: `${this.baseUrl}${path}`,
+    //   apiKey: this.apiKey,
+    //   headers: {
+    //     "Content-Type": "application/json",
+    //     Authorization: `Bearer ${this.apiKey}`,
+    //     ...extraHeaders,
+    //   },
+    // });
     const res = await fetch(`${this.baseUrl}${path}`, {
       method: "POST",
       headers: {
