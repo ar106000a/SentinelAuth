@@ -172,4 +172,15 @@ describe("sentinel-auth-login", () => {
       "#ff0000"
     );
   });
+  it("dispatches sentinel-forgot-password-requested when the link is clicked", () => {
+    const el = document.createElement("sentinel-auth-login") as any;
+    document.body.appendChild(el);
+
+    const handler = vi.fn();
+    el.addEventListener("sentinel-forgot-password-requested", handler);
+
+    el.shadowRoot.querySelector(".forgot-password-link").click();
+
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
 });

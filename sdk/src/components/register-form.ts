@@ -100,6 +100,11 @@ const TEMPLATE = /* html */ `
     <input type="password" id="password" name="password" required autocomplete="new-password" minlength="8" />
     <span class="hint" id="password-hint">At least 8 characters.</span>
   </div>
+  <div class="field">
+    <label for="confirm-password">Confirm password</label>
+    <input type="password" id="confirm-password" name="confirmPassword" required autocomplete="new-password" />
+    <span class="hint" id="confirm-hint"></span>
+  </div>
   <div class="form-error" role="alert"></div>
   <button type="submit">Create account</button>
 </form>
@@ -110,7 +115,9 @@ export class SentinelAuthRegisterElement extends HTMLElement {
   private form: HTMLFormElement;
   private emailInput: HTMLInputElement;
   private passwordInput: HTMLInputElement;
+  private confirmPasswordInput: HTMLInputElement;
   private passwordHint: HTMLElement;
+  private confirmHint: HTMLElement;
   private errorEl: HTMLElement;
   private submitBtn: HTMLButtonElement;
 
@@ -122,18 +129,38 @@ export class SentinelAuthRegisterElement extends HTMLElement {
     this.form = shadow.querySelector("form")!;
     this.emailInput = shadow.querySelector("#email")!;
     this.passwordInput = shadow.querySelector("#password")!;
+    this.confirmPasswordInput = shadow.querySelector("#confirm-password")!;
     this.passwordHint = shadow.querySelector("#password-hint")!;
+    this.confirmHint = shadow.querySelector("#confirm-hint")!;
     this.errorEl = shadow.querySelector(".form-error")!;
     this.submitBtn = shadow.querySelector("button")!;
 
     this.form.addEventListener("submit", this.handleSubmit);
     this.passwordInput.addEventListener("input", this.clearFieldError);
+    this.passwordInput.addEventListener("input", this.checkPasswordsMatch);
+    this.confirmPasswordInput.addEventListener(
+      "input",
+      this.checkPasswordsMatch
+    );
     this.emailInput.addEventListener("input", this.clearFieldError);
   }
 
   setSdk(sdk: SentinelAuth) {
     this.sdk = sdk;
   }
+  private checkPasswordsMatch = () => {
+    if (!this.confirmPasswordInput.value) {
+      this.confirmHint.textContent = "";
+      this.confirmPasswordInput.classList.remove("invalid");
+      return;
+    }
+
+    const matches =
+      this.passwordInput.value === this.confirmPasswordInput.value;
+    this.confirmPasswordInput.classList.toggle("invalid", !matches);
+    this.confirmHint.textContent = matches ? "" : "Passwords do not match.";
+    this.confirmHint.classList.toggle("error", !matches);
+  };
 
   private clearFieldError = () => {
     this.errorEl.textContent = "";
@@ -187,6 +214,14 @@ export class SentinelAuthRegisterElement extends HTMLElement {
 
     const email = this.emailInput.value;
     const password = this.passwordInput.value;
+    const confirmPassword=this.confirmPasswordInput.value;
+
+    if (password !== confirmPassword) {
+      this.confirmPasswordInput.classList.add("invalid");
+      this.confirmHint.textContent = "Passwords do not match.";
+      this.confirmHint.classList.add("error");
+      return;
+    }
 
     this.submitBtn.disabled = true;
     this.submitBtn.textContent = "Creating account...";

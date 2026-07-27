@@ -81,6 +81,16 @@ const TEMPLATE = /* html */ `
     display: flex;
     flex-direction: column;
   }
+    .forgot-password-link {
+  background: none;
+  border: none;
+  color: var(--_primary);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  text-decoration: underline;
+}
 </style>
 
 <form>
@@ -94,6 +104,7 @@ const TEMPLATE = /* html */ `
   </div>
   <div class="error" role="alert"></div>
   <button type="submit">Sign in</button>
+  <button type="button" class="forgot-password-link">Forgot password?</button>
 </form>
 `;
 
@@ -111,8 +122,17 @@ export class SentinelAuthLoginElement extends HTMLElement {
     this.form = shadow.querySelector("form")!;
     this.errorEl = shadow.querySelector(".error")!;
     this.submitBtn = shadow.querySelector("button")!;
+    const forgotBtn = shadow.querySelector(".forgot-password-link")!;
 
     this.form.addEventListener("submit", this.handleSubmit);
+    forgotBtn.addEventListener("click", () => {
+      this.dispatchEvent(
+        new CustomEvent("sentinel-forgot-password-requested", {
+          bubbles: true,
+          composed: true,
+        })
+      );
+    });
   }
 
   /**
@@ -130,7 +150,8 @@ export class SentinelAuthLoginElement extends HTMLElement {
     this.errorEl.textContent = "";
 
     if (!this.sdk) {
-      this.errorEl.textContent = "SentinelAuth SDK not connected to this component.";
+      this.errorEl.textContent =
+        "SentinelAuth SDK not connected to this component.";
       return;
     }
 

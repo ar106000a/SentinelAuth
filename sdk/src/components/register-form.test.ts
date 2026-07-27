@@ -15,6 +15,7 @@ function submitForm(el: any) {
 function setValues(el: any, email: string, password: string) {
   el.shadowRoot.querySelector("#email").value = email;
   el.shadowRoot.querySelector("#password").value = password;
+  el.shadowRoot.querySelector("#confirm-password").value = password;
 }
 
 async function tick() {
@@ -204,5 +205,58 @@ describe("sentinel-auth-register", () => {
     await tick();
 
     expect(button.disabled).toBe(false);
+  });
+  it("shows mismatch hint immediately when confirm password differs", async () => {
+    const el = document.createElement("sentinel-auth-register") as any;
+    document.body.appendChild(el);
+
+    const password = el.shadowRoot.querySelector("#password");
+    const confirm = el.shadowRoot.querySelector("#confirm-password");
+
+    password.value = "SecurePass123";
+    password.dispatchEvent(new Event("input", { bubbles: true }));
+    confirm.value = "DifferentPass456";
+    confirm.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(confirm.classList.contains("invalid")).toBe(true);
+    expect(el.shadowRoot.querySelector("#confirm-hint").textContent).toBe(
+      "Passwords do not match."
+    );
+  });
+
+  it("clears mismatch hint once passwords match", async () => {
+    const el = document.createElement("sentinel-auth-register") as any;
+    document.body.appendChild(el);
+
+    const password = el.shadowRoot.querySelector("#password");
+    const confirm = el.shadowRoot.querySelector("#confirm-password");
+
+    password.value = "SecurePass123";
+    password.dispatchEvent(new Event("input", { bubbles: true }));
+    confirm.value = "SecurePass123";
+    confirm.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(confirm.classList.contains("invalid")).toBe(false);
+    expect(el.shadowRoot.querySelector("#confirm-hint").textContent).toBe("");
+  });
+
+  it("blocks submission and never calls sdk.register when passwords mismatch", async () => {
+    const mockRegister = vi.fn();
+    const sdk = createMockSdk({ register: mockRegister });
+
+    const el = document.createElement("sentinel-auth-register") as any;
+    document.body.appendChild(el);
+    el.setSdk(sdk);
+
+    el.shadowRoot.querySelector("#email").value = "new@example.com";
+    el.shadowRoot.querySelector("#password").value = "SecurePass123";
+    el.shadowRoot.querySelector("#confirm-password").value = "Mismatch456";
+
+    el.shadowRoot
+      .querySelector("form")
+      .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(mockRegister).not.toHaveBeenCalled();
   });
 });
