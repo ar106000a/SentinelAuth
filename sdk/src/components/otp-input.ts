@@ -75,7 +75,7 @@ const TEMPLATE = /* html */ `
 <div class="container">
   <div class="digits"></div>
   <div class="error-message" role="alert"></div>
-  <button type="button" disabled>Verify</button>
+  <button type="button" part="submit" disabled>Verify</button>
 </div>
 `;
 
