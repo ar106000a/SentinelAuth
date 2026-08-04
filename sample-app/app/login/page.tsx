@@ -10,6 +10,7 @@ const sdk = new SentinelAuth({
 
 export default function LoginPage() {
   const flowRef = useRef<any>(null);
+  const passwordResetRef = useRef<any>(null);
   const registerFlowRef = useRef<any>(null);
   const [result, setResult] = useState<string | null>(null);
   const [componentsRegistered, setComponentsRegistered] = useState(false);
@@ -37,6 +38,16 @@ export default function LoginPage() {
       setResult(JSON.stringify((e as CustomEvent).detail, null, 2));
     };
 
+    passwordResetRef.current?.setSdk(sdk);
+
+    const handleResetComplete = (e: Event) => {
+      setResult(JSON.stringify((e as CustomEvent).detail, null, 2));
+    };
+    passwordResetRef.current?.addEventListener(
+      "sentinel-password-reset-complete",
+      handleResetComplete
+    );
+
     flowRef.current?.addEventListener(
       "sentinel-auth-complete",
       handleLoginComplete
@@ -47,6 +58,10 @@ export default function LoginPage() {
     );
 
     return () => {
+      passwordResetRef.current?.removeEventListener(
+        "sentinel-password-reset-complete",
+        handleResetComplete
+      );
       flowRef.current?.removeEventListener(
         "sentinel-auth-complete",
         handleLoginComplete
@@ -91,6 +106,12 @@ export default function LoginPage() {
         >
           {result}
         </pre>
+      )}
+
+      <h2 style={{ marginTop: "2rem" }}>Forgot password</h2>
+      {componentsRegistered && (
+        // @ts-expect-error custom element not in JSX.IntrinsicElements
+        <sentinel-auth-password-reset-flow ref={passwordResetRef} />
       )}
     </main>
   );

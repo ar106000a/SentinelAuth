@@ -19,8 +19,7 @@ export class SentinelAuth {
 
   constructor(config: SentinelAuthConfig) {
     if (!config.apiUrl) throw new Error("SentinelAuth: apiUrl is required");
-    if (!config.apiKey)
-      throw new Error("SentinelAuth: apiKey is required");
+    if (!config.apiKey) throw new Error("SentinelAuth: apiKey is required");
     this.http = new HttpClient(config);
   }
 
