@@ -5,4 +5,5 @@ export { SentinelAuthRegisterElement } from "./components/register-form.js";
 export { SentinelAuthRegisterFlowElement } from "./components/register-flow.js";
 export { SentinelAuthForgotPasswordElement } from "./components/forgot-password-form.js";
 export { SentinelAuthResetPasswordElement } from "./components/reset-password-form.js";
-export { SentinelAuthPasswordResetFlowElement } from "./components/password-reset-flow.js"
+export { SentinelAuthPasswordResetFlowElement } from "./components/password-reset-flow.js";
+export { SentinelAuthMfaSetupElement } from "./components/mfa-setup.js";
