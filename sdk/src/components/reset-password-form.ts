@@ -176,7 +176,7 @@ export class SentinelAuthResetPasswordElement extends HTMLElement {
       return;
     }
 
-    const code = this.readOtp();
+    const code = this.otpEl.readOtp();
 
     if (code.length !== 6) {
       this.errorEl.textContent = "Please enter the 6-digit code.";
@@ -226,12 +226,12 @@ export class SentinelAuthResetPasswordElement extends HTMLElement {
     }
   };
 
-  private readOtp(): string {
-    const inputs = Array.from(
-      this.otpEl.shadowRoot?.querySelectorAll("input.digit") ?? []
-    ) as HTMLInputElement[];
-    return inputs.map((input) => input.value).join("");
-  }
+  // private readOtp(): string {
+  //   const inputs = Array.from(
+  //     this.otpEl.shadowRoot?.querySelectorAll("input.digit") ?? []
+  //   ) as HTMLInputElement[];
+  //   return inputs.map((input) => input.value).join("");
+  // }
 
   reset() {
     this.email = null;

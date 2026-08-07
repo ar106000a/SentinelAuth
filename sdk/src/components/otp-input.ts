@@ -148,9 +148,20 @@ export class SentinelAuthOtpElement extends HTMLElement {
     }
 
     if (e.key === "Enter") {
-      this.handleSubmit();
+      e.preventDefault();
+
+      if (!this.submitBtn.disabled) {
+        this.handleSubmit();
+      }
     }
   };
+
+    public readOtp(): string {
+    const inputs = Array.from(
+      this.shadowRoot?.querySelectorAll("input.digit") ?? []
+    ) as HTMLInputElement[];
+    return inputs.map((input) => input.value).join("");
+  }
 
   private handlePaste = (e: ClipboardEvent) => {
     e.preventDefault();

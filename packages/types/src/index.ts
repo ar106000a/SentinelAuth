@@ -146,3 +146,9 @@ export interface MfaSetupResponse {
   secret: string;
   qrCodeDataUri: string;
 }
+// export interface SentinelAuthError{
+//   message:string;
+//   statusCode:number;
+//   code:string;
+
+// }
