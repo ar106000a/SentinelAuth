@@ -1,4 +1,4 @@
-import { SentinelAuthError, type SentinelAuth } from "../index";
+import { type SentinelAuth } from "../index";
 import { SentinelAuthOtpElement } from "./otp-input";
 import "./otp-input";
 
@@ -70,7 +70,7 @@ const template = `
   button.primary:hover:not(:disabled) { background: var(--_primary-hover); }
   button.primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
-  sentinel-auth-otp::part('submit'){
+  sentinel-auth-otp::part(submit){
     display:none;
   }
 
@@ -170,11 +170,12 @@ export class SentinelAuthMfaDisableElement extends HTMLElement {
         err instanceof Error
           ? err.message
           : "Something went wrong!";
-      this.errorEl.textContent = message;
-      this.otpEl.showError(message);
-      if (message === "Invalid password!") {
-        this.passwordField.classList.add("invalid");
-      }
+          if (message === "Invalid password!") {
+            this.errorEl.textContent = message;
+            this.passwordField.classList.add("invalid");
+          }else{
+          this.otpEl.showError(message);
+          }
 
       this.dispatchEvent(
         new CustomEvent("sentinel-mfa-disable-error", {
@@ -184,6 +185,7 @@ export class SentinelAuthMfaDisableElement extends HTMLElement {
         })
       );
     } finally {
+      this.otpEl.finishSubmitting();
       this.submitBtn.disabled = false;
       this.submitBtn.textContent = "Disable MFA";
     }
