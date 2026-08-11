@@ -27,9 +27,6 @@ app.onError((err, c) => {
   return errorResponse(c, "Internal server error", 500, "INTERNAL_ERROR");
 });
 
-// 1. Error handler middleware — catches errors from middleware chain
-app.use("*", errorHandler);
-
 // 2. Observability
 app.use("*", logger());
 
@@ -37,12 +34,17 @@ app.use("*", logger());
 app.use(
   "*",
   cors({
-    origin: ["http://localhost:3001"], // dashboard dev server
+    origin: ["http://localhost:3001", "http://localhost:3001/login"], // dashboard dev server
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowHeaders: ["Content-Type", "Authorization", "X-User-Token"],
     exposeHeaders: ["X-RateLimit-Limit", "X-RateLimit-Remaining"],
+    credentials: true,
   })
 );
+
+// 1. Error handler middleware — catches errors from middleware chain
+app.use("*", errorHandler);
+
 app.use("*", requestId);
 // 4. Rate limiting
 app.use("/api/*", rateLimitMiddleware(DEFAULT_RATE_LIMIT));

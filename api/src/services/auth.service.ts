@@ -40,7 +40,7 @@ export interface LoginInput {
 export interface LoginOutput {
   accessToken?: string;
   refreshToken?: string;
-  mfaRequired: false;
+  mfaRequired: boolean;
   sessionChallenge?: string;
   userId: string;
 }
@@ -192,7 +192,7 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
     const riskScore = await getRiskScore(featureVector, failOpen);
     const riskThreshold = (tenant.settings?.riskThreshold as number) ?? 0.7;
 
-    const requiresMfa = user.mfaEnabled || riskScore >= riskThreshold;
+    const requiresMfa = user.mfaEnabled || (user.mfaEnabled && riskScore >= riskThreshold);
 
     if (requiresMfa) {
       //Creating session challenge - random token not a jwt

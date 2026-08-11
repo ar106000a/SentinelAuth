@@ -5,3 +5,4 @@ dist
 *.tsbuildinfo
 .turbo
 api/.env
+sdk/src/components/index.html
