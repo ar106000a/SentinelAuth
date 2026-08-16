@@ -192,7 +192,8 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
     const riskScore = await getRiskScore(featureVector, failOpen);
     const riskThreshold = (tenant.settings?.riskThreshold as number) ?? 0.7;
 
-    const requiresMfa = user.mfaEnabled || (user.mfaEnabled && riskScore >= riskThreshold);
+    const requiresMfa =
+      user.mfaEnabled || (user.mfaEnabled && riskScore >= riskThreshold);
 
     if (requiresMfa) {
       //Creating session challenge - random token not a jwt
@@ -338,6 +339,7 @@ export async function logoutUser(
 }
 export interface RefreshOutput {
   accessToken: string;
+  refreshToken:string;
 }
 
 export async function refreshAccessToken(
@@ -393,6 +395,12 @@ export async function refreshAccessToken(
       throw new AuthenticationError("User not found");
     }
 
+    refreshToken = signRefreshToken({
+      sub: user.id,
+      tenantId,
+      sessionId: session.id,
+    });
+
     accessToken = signJwt(
       {
         sub: user.id,
@@ -423,7 +431,7 @@ export async function refreshAccessToken(
     // console.log("✅ Updated tokenHash to:", newTokenHash);
     // console.log("✅ For sessionId:", session.id);
   });
-  return { accessToken: accessToken! };
+  return { accessToken: accessToken! , refreshToken: refreshToken};
 }
 
 export async function logFailedLogin(

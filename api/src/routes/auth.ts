@@ -44,6 +44,8 @@ import {
   recordFailedAttempt,
   recordSuccessfulLogin,
 } from "../lib/credential-stuffing";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
+import { env } from "../config/env";
 
 const auth = new Hono();
 auth.post("/register", async (c) => {
@@ -105,7 +107,7 @@ auth.post("/login", credentialStuffingGuard, async (c) => {
     );
   }
   try {
-    const result = await loginUser({
+    const { refreshToken, ...result } = await loginUser({
       tenantId,
       email: parsed.data.email,
       password: parsed.data.password,
@@ -114,6 +116,16 @@ auth.post("/login", credentialStuffingGuard, async (c) => {
       fingerprint: parsed.data.fingerprint ?? null,
     });
     await recordSuccessfulLogin(ip);
+    if (refreshToken) {
+      setCookie(c, "sentinel_refresh", refreshToken, {
+        httpOnly: true,
+        secure: env.NODE_ENV === "production",
+        sameSite: "Strict",
+        maxAge: 24 * 60 * 60,
+        path: "/",
+        domain: env.COOKIE_DOMAIN,
+      });
+    }
 
     return successResponse(c, result, 200);
   } catch (error) {
@@ -136,7 +148,14 @@ auth.post("/logout", userAuth, async (c) => {
   if (!token) {
     throw new ValidationError("Token absent with request");
   }
-
+  deleteCookie(c, "sentinel_refresh", {
+    httpOnly: true,
+    secure: env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/",
+    domain: env.COOKIE_DOMAIN,
+    maxAge: 34 * 60 * 60,
+  });
   await logoutUser(tenantId, userId!, token);
   return successResponse(c, { message: "Logged out successfully!" }, 200);
 });
@@ -144,14 +163,28 @@ auth.post("/logout", userAuth, async (c) => {
 auth.post("/refresh", async (c) => {
   const tenantId = c.get("tenantId");
 
-  const body = await c.req.json().catch(() => {
-    throw new ValidationError("Request body must be a valid json");
-  });
+  //COmmenting this out because this will throw if body is absent and now, we are sending the refreshToken through the cookie and not body so removing this is the sane decision instead of deliberately sedning an empty body everytime...
+  // await c.req.json().catch(() => {
+  //   console.log("--Coming from refresh router----");
+  //   throw new ValidationError("Request body must be a valid json");
+  // });
 
-  if (!body.refreshToken || typeof body.refreshToken !== "string") {
-    throw new ValidationError("refreshTOken is required");
+  const refreshToken = getCookie(c, "sentinel_refresh");
+
+  if (!refreshToken || typeof refreshToken !== "string") {
+    throw new AuthenticationError("refreshToken is required");
   }
-  const result = await refreshAccessToken(tenantId, body.refreshToken);
+  const result = await refreshAccessToken(tenantId, refreshToken);
+  if (result.refreshToken) {
+    setCookie(c, "sentinel_refresh", result.refreshToken, {
+      httpOnly: true,
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60,
+      path: "/",
+      secure: env.NODE_ENV === "production",
+      domain: env.COOKIE_DOMAIN,
+    });
+  }
   return successResponse(c, result, 200);
 });
 
@@ -304,12 +337,21 @@ auth.post("/mfa/verify", async (c) => {
     );
   }
 
-  const result = await verifyMfaChallenge({
+  const { refreshToken, ...result } = await verifyMfaChallenge({
     tenantId,
     sessionChallenge: parsed.data.sessionChallenge,
     code: parsed.data.code,
     ipAddress: ip,
     fingerprint: parsed.data.fingerprint ?? null,
+  });
+
+  setCookie(c, "sentinel_refresh", refreshToken, {
+    httpOnly: true,
+    maxAge: 24 * 60 * 60,
+    path: "/",
+    secure: env.NODE_ENV === "production",
+    sameSite: "strict",
+    domain: env.COOKIE_DOMAIN,
   });
 
   return successResponse(c, result, 200);

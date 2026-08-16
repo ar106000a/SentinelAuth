@@ -7,9 +7,8 @@ import { seedTenant, cleanupTenants } from "./utils/seed.js";
 import { generateOtp } from "../utils/crypto.js";
 import type {
   LoginSuccessResponse,
-  RefreshResponse,
+  ApiSuccessResponse,
 } from "@sentinelauth/types";
-import type { ApiSuccessResponse } from "@sentinelauth/types";
 
 vi.mock("../services/email.service.js", () => ({
   sendOtpEmail: vi.fn().mockResolvedValue(undefined),
@@ -19,7 +18,6 @@ const TENANT_EMAIL = "jwt-auth-tenant@sentineltest.com";
 let tenantSecret: string;
 let tenantId: string;
 let accessToken: string;
-let refreshToken: string;
 
 async function createVerifiedUser(email: string, password: string) {
   await app.fetch(
@@ -71,7 +69,6 @@ beforeAll(async () => {
 
   await createVerifiedUser("jwt-user@example.com", "SecurePass!123");
 
-  // Login to get initial tokens
   const res = await app.fetch(
     new Request("http://localhost/api/auth/login", {
       method: "POST",
@@ -88,7 +85,6 @@ beforeAll(async () => {
 
   const body = (await res.json()) as ApiSuccessResponse<LoginSuccessResponse>;
   accessToken = body.data.accessToken;
-  refreshToken = body.data.refreshToken;
 });
 
 afterAll(async () => {
@@ -102,58 +98,13 @@ function tenantHeaders() {
   };
 }
 
-// 1. Run Refresh tests FIRST while the session is fresh and unrevoked
-describe("POST /api/auth/refresh", () => {
-  it("issues new access token with valid refresh token", async () => {
-    const res = await app.fetch(
-      new Request("http://localhost/api/auth/refresh", {
-        method: "POST",
-        headers: tenantHeaders(),
-        body: JSON.stringify({ refreshToken }),
-      })
-    );
+// Refresh-flow coverage (cookie issuance, cookie-only contract, re-issuance
+// on refresh, rejection with no/malformed/body-supplied token) now lives
+// entirely in auth-cookie.test.ts as of SENT-1146. This file retains only
+// what's specific to it: the userAuth middleware's own token-presence and
+// revocation checks.
 
-    const body = (await res.json()) as ApiSuccessResponse<RefreshResponse>;
-
-    expect(res.status).toBe(200);
-    expect(body.success).toBe(true);
-    expect(body.data.accessToken).toBeTruthy();
-    expect(body.data.accessToken.split(".")).toHaveLength(3);
-
-    // New token should be different from the old one
-    expect(body.data.accessToken).not.toBe(accessToken);
-
-    // CRITICAL: Update the global accessToken so the logout tests use the new one!
-    accessToken = body.data.accessToken;
-  });
-
-  it("rejects invalid refresh token", async () => {
-    const res = await app.fetch(
-      new Request("http://localhost/api/auth/refresh", {
-        method: "POST",
-        headers: tenantHeaders(),
-        body: JSON.stringify({ refreshToken: "invalid.token.here" }),
-      })
-    );
-
-    expect(res.status).toBe(401);
-  });
-
-  it("rejects missing refresh token with 400", async () => {
-    const res = await app.fetch(
-      new Request("http://localhost/api/auth/refresh", {
-        method: "POST",
-        headers: tenantHeaders(),
-        body: JSON.stringify({}),
-      })
-    );
-
-    expect(res.status).toBe(400);
-  });
-});
-
-// 2. Run Logout / Middleware tests LAST because they destroy the session
-describe("JWT verification middleware & Logout", () => {
+describe("userAuth middleware", () => {
   it("rejects request with missing X-User-Token", async () => {
     const res = await app.fetch(
       new Request("http://localhost/api/auth/logout", {
@@ -165,23 +116,22 @@ describe("JWT verification middleware & Logout", () => {
     expect(res.status).toBe(401);
   });
 
-  it("allows request with valid user token and processes logout", async () => {
+  it("allows request with a valid, unrevoked user token", async () => {
     const res = await app.fetch(
       new Request("http://localhost/api/auth/logout", {
         method: "POST",
         headers: {
           ...tenantHeaders(),
-          "X-User-Token": accessToken, // Uses the fresh token from the refresh test
+          "X-User-Token": accessToken,
         },
       })
     );
 
-    // Logout should succeed
     expect(res.status).toBe(200);
   });
 
-  it("rejects revoked token after logout", async () => {
-    // Token was revoked in the test immediately above
+  it("rejects the same token again after logout has revoked it", async () => {
+    // Token was revoked by the logout call in the test immediately above.
     const res = await app.fetch(
       new Request("http://localhost/api/auth/logout", {
         method: "POST",
@@ -194,8 +144,6 @@ describe("JWT verification middleware & Logout", () => {
 
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error: { code: string } };
-
-    // Check your specific error mapping structure, this ensures it failed correctly
     expect(body).toHaveProperty("error");
   });
 });
