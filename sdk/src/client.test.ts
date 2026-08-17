@@ -109,3 +109,144 @@ describe("HttpClient", () => {
     expect(options.body).toBeUndefined();
   });
 });
+describe("HttpClient — 401 interception", () => {
+  it("retries once with a fresh token when a user-token request 401s", async () => {
+    const client = new HttpClient({
+      apiUrl: "https://api.example.com",
+      apiKey: "key",
+    });
+    const mockSessionManager = {
+      refreshIfNeeded: vi.fn().mockResolvedValue("new-token"),
+    };
+    client.attachSessionManager(mockSessionManager as any);
+
+    let callCount = 0;
+    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          ok: false,
+          status: 401,
+          json: async () => ({
+            success: false,
+            error: { message: "expired", code: "AUTHENTICATION_ERROR" },
+          }),
+        } as Response;
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, data: { ok: true } }),
+      } as Response;
+    });
+
+    const result = await client.post(
+      "/test",
+      {},
+      { "X-User-Token": "old-token" }
+    );
+
+    expect(callCount).toBe(2);
+    expect(mockSessionManager.refreshIfNeeded).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("does NOT attempt refresh for a 401 on a request without X-User-Token", async () => {
+    const client = new HttpClient({
+      apiUrl: "https://api.example.com",
+      apiKey: "key",
+    });
+    const mockSessionManager = { refreshIfNeeded: vi.fn() };
+    client.attachSessionManager(mockSessionManager as any);
+
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({
+        success: false,
+        error: {
+          message: "Invalid email or password",
+          code: "AUTHENTICATION_ERROR",
+        },
+      }),
+    } as Response);
+
+    await expect(client.post("/api/auth/login", {})).rejects.toThrow(
+      SentinelAuthError
+    );
+    expect(mockSessionManager.refreshIfNeeded).not.toHaveBeenCalled();
+  });
+
+  it("surfaces the ORIGINAL 401 if the refresh attempt itself fails", async () => {
+    const client = new HttpClient({
+      apiUrl: "https://api.example.com",
+      apiKey: "key",
+    });
+    const mockSessionManager = {
+      refreshIfNeeded: vi.fn().mockRejectedValue(new Error("refresh dead")),
+    };
+    client.attachSessionManager(mockSessionManager as any);
+
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({
+        success: false,
+        error: { message: "Session expired", code: "AUTHENTICATION_ERROR" },
+      }),
+    } as Response);
+
+    await expect(
+      client.post("/test", {}, { "X-User-Token": "old-token" })
+    ).rejects.toMatchObject({ message: "Session expired" });
+  });
+
+  it("does not retry more than once even if the retried request also 401s", async () => {
+    const client = new HttpClient({
+      apiUrl: "https://api.example.com",
+      apiKey: "key",
+    });
+    const mockSessionManager = {
+      refreshIfNeeded: vi.fn().mockResolvedValue("new-token"),
+    };
+    client.attachSessionManager(mockSessionManager as any);
+
+    let callCount = 0;
+    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+      callCount++;
+      return {
+        ok: false,
+        status: 401,
+        json: async () => ({
+          success: false,
+          error: { message: "still expired", code: "AUTHENTICATION_ERROR" },
+        }),
+      } as Response;
+    });
+
+    await expect(
+      client.post("/test", {}, { "X-User-Token": "old-token" })
+    ).rejects.toThrow();
+
+    expect(callCount).toBe(2); // original + exactly one retry, never more
+    expect(mockSessionManager.refreshIfNeeded).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends credentials: include on every request", async () => {
+    const client = new HttpClient({
+      apiUrl: "https://api.example.com",
+      apiKey: "key",
+    });
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true, data: {} }),
+    } as Response);
+
+    await client.get("/test");
+
+    const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock
+      .calls[0];
+    expect(options.credentials).toBe("include");
+  });
+});

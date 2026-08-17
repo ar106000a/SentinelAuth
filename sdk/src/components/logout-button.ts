@@ -44,7 +44,6 @@ const template = /*html*/ `
 `;
 export class SentinelAuthLogoutElement extends HTMLElement {
   private sdk: SentinelAuth | null = null;
-  private accessToken: string | null = null;
   private logoutBtn: HTMLButtonElement;
   private errorElem: HTMLElement;
 
@@ -65,16 +64,15 @@ export class SentinelAuthLogoutElement extends HTMLElement {
     this.sdk = sdk;
   }
 
-  setAccessToken(accessToken: string) {
-    this.accessToken = accessToken;
-  }
+  
 
   handleLogout = async () => {
+    const accessToken= this.sdk?.getAccessToken();
     if (!this.sdk) {
       this.setFormError("SDK not connected! Start over.");
       return;
     }
-    if (!this.accessToken) {
+    if (!accessToken) {
       this.setFormError("Access Token not initialized!");
       return;
     }
@@ -83,7 +81,7 @@ export class SentinelAuthLogoutElement extends HTMLElement {
     this.logoutBtn.textContent = "Logging out...";
 
     try {
-      const result = await this.sdk.logout(this.accessToken);
+      const result = await this.sdk.logout(accessToken);
       this.dispatchEvent(
         new CustomEvent("sentinel-logout-complete", {
           detail: { message: result.message },

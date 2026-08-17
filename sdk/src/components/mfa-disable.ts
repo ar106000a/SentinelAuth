@@ -96,7 +96,6 @@ export class SentinelAuthMfaDisableElement extends HTMLElement {
   private passwordField: HTMLInputElement;
   private submitBtn: HTMLButtonElement;
   private errorEl: HTMLElement;
-  private accessToken: string | null = null;
   private currentCode: string = "";
 
   constructor() {
@@ -123,16 +122,15 @@ export class SentinelAuthMfaDisableElement extends HTMLElement {
   setSdk(sdk: SentinelAuth) {
     this.sdk = sdk;
   }
-  setAccessToken(accessToken: string) {
-    this.accessToken = accessToken;
-  }
+  
 
   handleSubmit = async () => {
+    const accessToken=this.sdk?.getAccessToken();
     if (!this.sdk) {
       this.setFormError("SDK not connected. Start over again!");
       return;
     }
-    if (!this.accessToken) {
+    if (!accessToken) {
       this.setFormError("SDK not initialized with access token!");
       return;
     }
@@ -153,7 +151,7 @@ export class SentinelAuthMfaDisableElement extends HTMLElement {
     this.passwordField.classList.remove("invalid");
     try {
       const result = await this.sdk.disableMfa(
-        this.accessToken,
+        accessToken,
         password,
         code
       );

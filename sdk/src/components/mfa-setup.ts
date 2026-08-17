@@ -100,7 +100,6 @@ const TEMPLATE = /* html */ `
 
 export class SentinelAuthMfaSetupElement extends HTMLElement {
   private sdk: SentinelAuth | null = null;
-  private accessToken: string | null = null;
   private qrStep: HTMLElement;
   private confirmStep: HTMLElement;
   private qrImg: HTMLImageElement;
@@ -130,10 +129,7 @@ export class SentinelAuthMfaSetupElement extends HTMLElement {
     this.sdk = sdk;
   }
 
-  /** Must be called with a valid access token before start(). */
-  setAccessToken(token: string) {
-    this.accessToken = token;
-  }
+ 
 
   /**
    * Triggers setupMfa() and populates the QR code + secret.
@@ -144,14 +140,14 @@ export class SentinelAuthMfaSetupElement extends HTMLElement {
    */
   async start() {
     this.errorEl.textContent = "";
-
-    if (!this.sdk || !this.accessToken) {
+    const accessToken=this.sdk?.getAccessToken();
+    if (!this.sdk || !accessToken) {
       this.errorEl.textContent = "MFA setup not initialized — missing SDK or access token.";
       return;
     }
 
     try {
-      const result = await this.sdk.setupMfa(this.accessToken);
+      const result = await this.sdk.setupMfa(accessToken);
       this.qrImg.src = result.qrCodeDataUri;
       this.secretEl.textContent = result.secret;
       this.showStep("qr");
@@ -164,14 +160,16 @@ export class SentinelAuthMfaSetupElement extends HTMLElement {
   private handleConfirm = async (e: Event) => {
     const {code} = (e as CustomEvent<{ code: string }>).detail;
     this.errorEl.textContent = "";
+    const accessToken= this.sdk?.getAccessToken();
 
-    if (!this.sdk || !this.accessToken) {
+    if (!this.sdk || !accessToken) {
       this.otpEl.showError("MFA setup session expired. Please start over.");
       return;
     }
 
     try {
-      await this.sdk.enableMfa(this.accessToken, code);
+
+      await this.sdk.enableMfa(accessToken, code);
 
       this.dispatchEvent(
         new CustomEvent("sentinel-mfa-setup-complete", {

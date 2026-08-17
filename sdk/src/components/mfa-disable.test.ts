@@ -4,12 +4,18 @@ import "./mfa-disable.js";
 import type { SentinelAuth } from "../index.js";
 
 function createMockSdk(overrides: Partial<SentinelAuth> = {}): SentinelAuth {
-  return { disableMfa: vi.fn(), ...overrides } as unknown as SentinelAuth;
+  return {
+    disableMfa: vi.fn(),
+    getAccessToken: vi.fn().mockReturnValue(null),
+    ...overrides,
+  } as unknown as SentinelAuth;
 }
 
 function fillOtp(el: any, code: string) {
   const otpEl = el.shadowRoot.querySelector("sentinel-auth-otp");
-  const inputs = Array.from(otpEl.shadowRoot.querySelectorAll("input.digit")) as HTMLInputElement[];
+  const inputs = Array.from(
+    otpEl.shadowRoot.querySelectorAll("input.digit")
+  ) as HTMLInputElement[];
   code.split("").forEach((digit, i) => {
     inputs[i].value = digit;
     inputs[i].dispatchEvent(new Event("input", { bubbles: true }));
@@ -52,18 +58,20 @@ describe("sentinel-auth-mfa-disable", () => {
   it("shows a specific error if submitted without an SDK connected", async () => {
     const el = document.createElement("sentinel-auth-mfa-disable") as any;
     document.body.appendChild(el);
-    el.setAccessToken("token123");
+    // REMOVED: el.setAccessToken("token123");
 
     fillPassword(el, "CurrentPass123");
     fillOtp(el, "123456");
     clickSubmit(el);
     await tick();
 
-    expect(el.shadowRoot.querySelector(".form-error").textContent).toContain("not connected");
+    expect(el.shadowRoot.querySelector(".form-error").textContent).toContain(
+      "not connected"
+    );
   });
 
   it("shows a specific error if submitted without an access token", async () => {
-    const sdk = createMockSdk();
+    const sdk = createMockSdk(); // getAccessToken defaults to returning null
     const el = document.createElement("sentinel-auth-mfa-disable") as any;
     document.body.appendChild(el);
     el.setSdk(sdk);
@@ -74,37 +82,53 @@ describe("sentinel-auth-mfa-disable", () => {
     clickSubmit(el);
     await tick();
 
-    expect(el.shadowRoot.querySelector(".form-error").textContent).toContain("not initialized");
+    expect(el.shadowRoot.querySelector(".form-error").textContent).toContain(
+      "not initialized"
+    );
     expect(sdk.disableMfa).not.toHaveBeenCalled();
   });
 
   // ── The Week 11 wrinkle, reapplied ───────────────────────────────────────────
 
   it("reads the OTP code from the digit inputs directly — works without clicking otp-input's own button", async () => {
-    const mockDisable = vi.fn().mockResolvedValue({ message: "MFA disabled successfully" });
-    const sdk = createMockSdk({ disableMfa: mockDisable });
+    const mockDisable = vi
+      .fn()
+      .mockResolvedValue({ message: "MFA disabled successfully" });
+    // ADDED: getAccessToken mock
+    const sdk = createMockSdk({
+      disableMfa: mockDisable,
+      getAccessToken: vi.fn().mockReturnValue("token123"),
+    });
 
     const el = document.createElement("sentinel-auth-mfa-disable") as any;
     document.body.appendChild(el);
     el.setSdk(sdk);
-    el.setAccessToken("token123");
+    // REMOVED: el.setAccessToken("token123");
 
     fillPassword(el, "CurrentPass123");
     fillOtp(el, "123456");
     clickSubmit(el); // never touches otp-input's internal button
     await tick();
 
-    expect(mockDisable).toHaveBeenCalledWith("token123", "CurrentPass123", "123456");
+    expect(mockDisable).toHaveBeenCalledWith(
+      "token123",
+      "CurrentPass123",
+      "123456"
+    );
   });
 
   it("blocks submission if the code is incomplete, never calls the API", async () => {
     const mockDisable = vi.fn();
-    const sdk = createMockSdk({ disableMfa: mockDisable });
+    // ADDED: getAccessToken mock
+    const sdk = createMockSdk({
+      disableMfa: mockDisable,
+      getAccessToken: vi.fn().mockReturnValue("token123"),
+    });
 
     const el = document.createElement("sentinel-auth-mfa-disable") as any;
     document.body.appendChild(el);
     el.setSdk(sdk);
-    el.setAccessToken("token123");
+    // REMOVED: el.setAccessToken("token123");
 
     fillPassword(el, "CurrentPass123");
     fillOtp(el, "123"); // incomplete
@@ -116,12 +140,16 @@ describe("sentinel-auth-mfa-disable", () => {
 
   it("blocks submission if the password field is empty, never calls the API", async () => {
     const mockDisable = vi.fn();
-    const sdk = createMockSdk({ disableMfa: mockDisable });
+    // ADDED: getAccessToken mock
+    const sdk = createMockSdk({
+      disableMfa: mockDisable,
+      getAccessToken: vi.fn().mockReturnValue("token123"),
+    });
 
     const el = document.createElement("sentinel-auth-mfa-disable") as any;
     document.body.appendChild(el);
     el.setSdk(sdk);
-    el.setAccessToken("token123");
+    // REMOVED: el.setAccessToken("token123");
 
     fillOtp(el, "123456");
     clickSubmit(el); // no password entered at all
@@ -133,14 +161,18 @@ describe("sentinel-auth-mfa-disable", () => {
   // ── Success path ──────────────────────────────────────────────────────────
 
   it("dispatches sentinel-mfa-disable-complete on success", async () => {
+    // ADDED: getAccessToken mock
     const sdk = createMockSdk({
-      disableMfa: vi.fn().mockResolvedValue({ message: "MFA disabled successfully" }),
+      disableMfa: vi
+        .fn()
+        .mockResolvedValue({ message: "MFA disabled successfully" }),
+      getAccessToken: vi.fn().mockReturnValue("token123"),
     });
 
     const el = document.createElement("sentinel-auth-mfa-disable") as any;
     document.body.appendChild(el);
     el.setSdk(sdk);
-    el.setAccessToken("token123");
+    // REMOVED: el.setAccessToken("token123");
 
     const completeHandler = vi.fn();
     el.addEventListener("sentinel-mfa-disable-complete", completeHandler);
@@ -156,14 +188,16 @@ describe("sentinel-auth-mfa-disable", () => {
   // ── Distinguishable failure modes (SENT-1142 requirement #6) ─────────────────
 
   it("surfaces a wrong-password error distinctly, per the API's separate AuthenticationError for password", async () => {
+    // ADDED: getAccessToken mock
     const sdk = createMockSdk({
       disableMfa: vi.fn().mockRejectedValue(new Error("Invalid password!")),
+      getAccessToken: vi.fn().mockReturnValue("token123"),
     });
 
     const el = document.createElement("sentinel-auth-mfa-disable") as any;
     document.body.appendChild(el);
     el.setSdk(sdk);
-    el.setAccessToken("token123");
+    // REMOVED: el.setAccessToken("token123");
 
     fillPassword(el, "WrongPassword");
     fillOtp(el, "123456");
@@ -172,19 +206,29 @@ describe("sentinel-auth-mfa-disable", () => {
 
     // Password-specific error should be attributable to the password field,
     // not the OTP widget — this is the "tell the user which one was wrong" requirement
-    expect(el.shadowRoot.querySelector("#mfad-password").classList.contains("invalid")).toBe(true);
-    expect(el.shadowRoot.querySelector(".form-error").textContent).toBe("Invalid password!");
+    expect(
+      el.shadowRoot
+        .querySelector("#mfad-password")
+        .classList.contains("invalid")
+    ).toBe(true);
+    expect(el.shadowRoot.querySelector(".form-error").textContent).toBe(
+      "Invalid password!"
+    );
   });
 
   it("surfaces a wrong-code error distinctly, per the API's separate AuthenticationError for code", async () => {
+    // ADDED: getAccessToken mock
     const sdk = createMockSdk({
-      disableMfa: vi.fn().mockRejectedValue(new Error("Invalid authentication code!")),
+      disableMfa: vi
+        .fn()
+        .mockRejectedValue(new Error("Invalid authentication code!")),
+      getAccessToken: vi.fn().mockReturnValue("token123"),
     });
 
     const el = document.createElement("sentinel-auth-mfa-disable") as any;
     document.body.appendChild(el);
     el.setSdk(sdk);
-    el.setAccessToken("token123");
+    // REMOVED: el.setAccessToken("token123");
 
     fillPassword(el, "CurrentPass123");
     fillOtp(el, "000000");
@@ -194,18 +238,22 @@ describe("sentinel-auth-mfa-disable", () => {
     // Code-specific error should route to the OTP widget's own error display,
     // not just a generic form-level message
     const otpEl = el.shadowRoot.querySelector("sentinel-auth-otp");
-    expect(otpEl.shadowRoot.querySelector(".error-message").textContent).toBe("Invalid authentication code!");
+    expect(otpEl.shadowRoot.querySelector(".error-message").textContent).toBe(
+      "Invalid authentication code!"
+    );
   });
 
   it("dispatches sentinel-mfa-disable-error on failure, never sentinel-mfa-disable-complete", async () => {
+    // ADDED: getAccessToken mock
     const sdk = createMockSdk({
       disableMfa: vi.fn().mockRejectedValue(new Error("Invalid password")),
+      getAccessToken: vi.fn().mockReturnValue("token123"),
     });
 
     const el = document.createElement("sentinel-auth-mfa-disable") as any;
     document.body.appendChild(el);
     el.setSdk(sdk);
-    el.setAccessToken("token123");
+    // REMOVED: el.setAccessToken("token123");
 
     const completeHandler = vi.fn();
     const errorHandler = vi.fn();
@@ -225,13 +273,19 @@ describe("sentinel-auth-mfa-disable", () => {
 
   it("disables the submit button and shows a loading label while in flight", async () => {
     let resolveDisable!: (v: unknown) => void;
-    const pending = new Promise((resolve) => { resolveDisable = resolve; });
-    const sdk = createMockSdk({ disableMfa: vi.fn().mockReturnValue(pending) });
+    const pending = new Promise((resolve) => {
+      resolveDisable = resolve;
+    });
+    // ADDED: getAccessToken mock
+    const sdk = createMockSdk({
+      disableMfa: vi.fn().mockReturnValue(pending),
+      getAccessToken: vi.fn().mockReturnValue("token123"),
+    });
 
     const el = document.createElement("sentinel-auth-mfa-disable") as any;
     document.body.appendChild(el);
     el.setSdk(sdk);
-    el.setAccessToken("token123");
+    // REMOVED: el.setAccessToken("token123");
 
     fillPassword(el, "CurrentPass123");
     fillOtp(el, "123456");
@@ -250,14 +304,16 @@ describe("sentinel-auth-mfa-disable", () => {
   // ── reset() ───────────────────────────────────────────────────────────────
 
   it("reset() clears the password field, the OTP code, and any error state", async () => {
+    // ADDED: getAccessToken mock
     const sdk = createMockSdk({
       disableMfa: vi.fn().mockRejectedValue(new Error("Invalid password")),
+      getAccessToken: vi.fn().mockReturnValue("token123"),
     });
 
     const el = document.createElement("sentinel-auth-mfa-disable") as any;
     document.body.appendChild(el);
     el.setSdk(sdk);
-    el.setAccessToken("token123");
+    // REMOVED: el.setAccessToken("token123");
 
     fillPassword(el, "WrongPassword");
     fillOtp(el, "123456");
@@ -270,7 +326,9 @@ describe("sentinel-auth-mfa-disable", () => {
     expect(el.shadowRoot.querySelector(".form-error").textContent).toBe("");
 
     const otpInputs = Array.from(
-      el.shadowRoot.querySelector("sentinel-auth-otp").shadowRoot.querySelectorAll("input.digit")
+      el.shadowRoot
+        .querySelector("sentinel-auth-otp")
+        .shadowRoot.querySelectorAll("input.digit")
     ) as HTMLInputElement[];
     expect(otpInputs.every((i) => i.value === "")).toBe(true);
   });

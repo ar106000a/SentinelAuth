@@ -6,6 +6,7 @@ function createMockSdk(overrides: Partial<SentinelAuth> = {}): SentinelAuth {
   return {
     setupMfa: vi.fn(),
     enableMfa: vi.fn(),
+    getAccessToken: vi.fn().mockReturnValue(null), // ADDED default null
     ...overrides,
   } as unknown as SentinelAuth;
 }
@@ -33,28 +34,34 @@ describe("sentinel-auth-mfa-setup", () => {
 
   it("does not call setupMfa until start() is invoked", () => {
     const mockSetup = vi.fn();
-    const sdk = createMockSdk({ setupMfa: mockSetup });
-
-    const el = document.createElement("sentinel-auth-mfa-setup") as any;
-    document.body.appendChild(el);
-    el.setSdk(sdk);
-    el.setAccessToken("token123");
-
-    expect(mockSetup).not.toHaveBeenCalled();
-  });
-
-  it("start() calls setupMfa with the access token and renders QR + secret", async () => {
+    // ADDED: getAccessToken mock
     const sdk = createMockSdk({
-      setupMfa: vi.fn().mockResolvedValue({
-        secret: "JBSWY3DPEHPK3PXP",
-        qrCodeDataUri: "data:image/png;base64,abc123",
-      }),
+      setupMfa: mockSetup,
+      getAccessToken: vi.fn().mockReturnValue("token123"),
     });
 
     const el = document.createElement("sentinel-auth-mfa-setup") as any;
     document.body.appendChild(el);
     el.setSdk(sdk);
-    el.setAccessToken("token123");
+    // REMOVED: el.setAccessToken("token123");
+
+    expect(mockSetup).not.toHaveBeenCalled();
+  });
+
+  it("start() calls setupMfa with the access token and renders QR + secret", async () => {
+    // ADDED: getAccessToken mock
+    const sdk = createMockSdk({
+      setupMfa: vi.fn().mockResolvedValue({
+        secret: "JBSWY3DPEHPK3PXP",
+        qrCodeDataUri: "data:image/png;base64,abc123",
+      }),
+      getAccessToken: vi.fn().mockReturnValue("token123"),
+    });
+
+    const el = document.createElement("sentinel-auth-mfa-setup") as any;
+    document.body.appendChild(el);
+    el.setSdk(sdk);
+    // REMOVED: el.setAccessToken("token123");
     await el.start();
 
     expect(sdk.setupMfa).toHaveBeenCalledWith("token123");
@@ -67,7 +74,7 @@ describe("sentinel-auth-mfa-setup", () => {
   });
 
   it("shows an error if start() is called without an access token", async () => {
-    const sdk = createMockSdk();
+    const sdk = createMockSdk(); // defaults to returning null for getAccessToken
     const el = document.createElement("sentinel-auth-mfa-setup") as any;
     document.body.appendChild(el);
     el.setSdk(sdk);
@@ -81,19 +88,19 @@ describe("sentinel-auth-mfa-setup", () => {
   });
 
   it("switches to the confirm step when continue is clicked", async () => {
+    // ADDED: getAccessToken mock
     const sdk = createMockSdk({
-      setupMfa: vi
-        .fn()
-        .mockResolvedValue({
-          secret: "SECRET",
-          qrCodeDataUri: "data:image/png;base64,x",
-        }),
+      setupMfa: vi.fn().mockResolvedValue({
+        secret: "SECRET",
+        qrCodeDataUri: "data:image/png;base64,x",
+      }),
+      getAccessToken: vi.fn().mockReturnValue("token123"),
     });
 
     const el = document.createElement("sentinel-auth-mfa-setup") as any;
     document.body.appendChild(el);
     el.setSdk(sdk);
-    el.setAccessToken("token123");
+    // REMOVED: el.setAccessToken("token123");
     await el.start();
 
     el.shadowRoot.querySelector(".continue-btn").click();
@@ -110,20 +117,20 @@ describe("sentinel-auth-mfa-setup", () => {
     const mockEnable = vi
       .fn()
       .mockResolvedValue({ message: "MFA enabled successfully" });
+    // ADDED: getAccessToken mock
     const sdk = createMockSdk({
-      setupMfa: vi
-        .fn()
-        .mockResolvedValue({
-          secret: "SECRET",
-          qrCodeDataUri: "data:image/png;base64,x",
-        }),
+      setupMfa: vi.fn().mockResolvedValue({
+        secret: "SECRET",
+        qrCodeDataUri: "data:image/png;base64,x",
+      }),
       enableMfa: mockEnable,
+      getAccessToken: vi.fn().mockReturnValue("token123"),
     });
 
     const el = document.createElement("sentinel-auth-mfa-setup") as any;
     document.body.appendChild(el);
     el.setSdk(sdk);
-    el.setAccessToken("token123");
+    // REMOVED: el.setAccessToken("token123");
     await el.start();
     el.shadowRoot.querySelector(".continue-btn").click();
 
@@ -138,22 +145,22 @@ describe("sentinel-auth-mfa-setup", () => {
   });
 
   it("shows error on OTP widget and stays on confirm step when enableMfa rejects", async () => {
+    // ADDED: getAccessToken mock
     const sdk = createMockSdk({
-      setupMfa: vi
-        .fn()
-        .mockResolvedValue({
-          secret: "SECRET",
-          qrCodeDataUri: "data:image/png;base64,x",
-        }),
+      setupMfa: vi.fn().mockResolvedValue({
+        secret: "SECRET",
+        qrCodeDataUri: "data:image/png;base64,x",
+      }),
       enableMfa: vi
         .fn()
         .mockRejectedValue(new Error("Invalid authentication code")),
+      getAccessToken: vi.fn().mockReturnValue("token123"),
     });
 
     const el = document.createElement("sentinel-auth-mfa-setup") as any;
     document.body.appendChild(el);
     el.setSdk(sdk);
-    el.setAccessToken("token123");
+    // REMOVED: el.setAccessToken("token123");
     await el.start();
     el.shadowRoot.querySelector(".continue-btn").click();
 
@@ -170,19 +177,19 @@ describe("sentinel-auth-mfa-setup", () => {
   });
 
   it("reset() clears QR, secret, and returns to the qr step", async () => {
+    // ADDED: getAccessToken mock
     const sdk = createMockSdk({
-      setupMfa: vi
-        .fn()
-        .mockResolvedValue({
-          secret: "SECRET",
-          qrCodeDataUri: "data:image/png;base64,x",
-        }),
+      setupMfa: vi.fn().mockResolvedValue({
+        secret: "SECRET",
+        qrCodeDataUri: "data:image/png;base64,x",
+      }),
+      getAccessToken: vi.fn().mockReturnValue("token123"),
     });
 
     const el = document.createElement("sentinel-auth-mfa-setup") as any;
     document.body.appendChild(el);
     el.setSdk(sdk);
-    el.setAccessToken("token123");
+    // REMOVED: el.setAccessToken("token123");
     await el.start();
     el.shadowRoot.querySelector(".continue-btn").click();
 
