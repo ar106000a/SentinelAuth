@@ -6,7 +6,7 @@
 | Verify-Email | True | True |  |
 | Login | True | True |  |
 | Logout | True | True |  |
-| Refresh | False | False |  |
+| Refresh | False | True |  |
 | Forgot-Password | True | True |  |
 | ResetPassword | True | True |  |
 | Setup MFA | True | True |  |

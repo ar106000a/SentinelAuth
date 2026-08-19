@@ -339,7 +339,7 @@ export async function logoutUser(
 }
 export interface RefreshOutput {
   accessToken: string;
-  refreshToken:string;
+  refreshToken: string;
 }
 
 export async function refreshAccessToken(
@@ -431,7 +431,7 @@ export async function refreshAccessToken(
     // console.log("✅ Updated tokenHash to:", newTokenHash);
     // console.log("✅ For sessionId:", session.id);
   });
-  return { accessToken: accessToken! , refreshToken: refreshToken};
+  return { accessToken: accessToken!, refreshToken: refreshToken };
 }
 
 export async function logFailedLogin(
