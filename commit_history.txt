@@ -1,0 +1,97 @@
+5deca55 - ali, 46 minutes ago : chore: update pnpm-lock.yaml for react package
+4650e4d - ali, 50 minutes ago : feat: @sentinelauth/react scaffold — SentinelAuthProvider, useSentinelAuth headless hook
+4d46eab - ali, 2 hours ago : this is SDK v1
+a178dbd - ali, 2 days ago : feat: SessionManager, automatic 401 interception + single-retry, centralized token access (SENT-1147)
+024f230 - ali, 3 days ago : refactor: remove refreshToken from response body types and stale tests (SENT-1146 follow-up)
+a1a7110 - ali, 8 days ago : SDk files missed from recent commit [skip-ci]
+e40abc6 - ali, 8 days ago : test(SENT-1145): real-browser proof for logout, mfa-setup, mfa-enable, mfa-disable
+3ba230c - ali, 12 days ago : feat: logout-button component — single-action, fail-loud SDK/token guards, distinguishable success/error events
+78477bc - ali, 12 days ago : fix: minor inconsistencies in last commit i.e. error shape in catch, quotes in ::part, redundant error display, finishSubmitting call
+08990bd - ali, 12 days ago : Feat: mfa-disable component The new sentinel-auth-mfa-disable component disables the mfa , taking the password, authenticator code from user. Minor fix: Adds readOtp() to the otp-input component itself so the code doesnt repeat in the parent(user) component
+10b3706 - ali, 13 days ago : feat: mfa-setup component — QR/secret display, explicit start(), internal confirm step reusing otp-input
+86e66a3 - ali, 2 weeks ago : chore: wire password-reset-flow into sample app, proven end-to-end
+5bb7d72 - ali, 3 weeks ago : feat: password-reset-flow orchestrator composing forgot-password + reset-password
+68d0b8e - ali, 3 weeks ago : feat: reset-password component composing otp-input with new-password fields
+3b374b6 - ali, 3 weeks ago : feat: forgot-password component — deliberately preserves email-enumeration prevention from the API layer
+b39333f - ali, 3 weeks ago : chore: add readme.md
+566aeeb - ali, 3 weeks ago : chore: pushing unstaged changes from sample-app
+90c603e - ali, 3 weeks ago : feat: confirm-password field with live + submit-time match validation; forgot-password link on login form (dummy, event-driven for Week 11)
+674107c - ali, 3 weeks ago : feat: register-to-verify orchestration component; flag missing resend-OTP endpoint as a tracked gap
+e01055e - ali, 4 weeks ago : feat: themeable register component with field-specific error routing (CONFLICT, HIBP breach, generic)
+1a5251c - ali, 4 weeks ago : fix: split SDK entry points (index.ts vs components.ts) to prevent HTMLElement SSR crash
+b5274c4 - ali, 4 weeks ago : fix: rename SDK config field publicKey -> apiKey
+82427c0 - ali, 4 weeks ago : fix: split SDK entry points (index.ts vs components.ts) to prevent HTMLElement SSR crash
+2d72f62 - ali, 4 weeks ago : feat: sentinel-auth-flow orchestration component — automatic login/MFA transition, unified completion event
+ab99e91 - ali, 4 weeks ago : feat: themeable OTP input widget with paste support, reusable for verify-email and MFA flows
+a8c1d8b - ali, 4 weeks ago : feat: complete SDK method coverage — password reset, MFA setup/manage/verify
+db0841e - ali, 4 weeks ago : feat: themeable login-form web component with CSS custom properties, custom events
+e49e201 - ali, 4 weeks ago : feat: device fingerprint tracking with dedicated RLS-enforced table, is_new_device wired into feature vector
+8f17cdb - ali, 4 weeks ago : feat: wire device fingerprint into SDK login() and verify full round trip
+49d5dfd - ali, 4 weeks ago : feat: FingerprintJS integration with caching, concurrent-call dedup, fail-open behavior
+2385fc8 - ali, 4 weeks ago : CI formatting
+ac68ce8 - ali, 4 weeks ago : feat: SDK package scaffold with dual-format build, HttpClient, typed error handling
+4536f68 - ali, 4 weeks ago : feat: widen geo-velocity training distributions, retrain model, add separation test
+d89b2bd - ali, 5 weeks ago : feat: impossible travel end-to-end wiring, audit log event type, integration test
+ee0b118 - ali, 5 weeks ago : feat: geo-velocity calculation with Haversine formula and impossible travel detection
+acb0902 - ali, 5 weeks ago : feat: resolve real lat/lng from IP on login using geoip-lite, update feature vector
+f9ea86c - ali, 5 weeks ago : feat: GeoIP lookup utility using geoip-lite, isolated and tested
+91551aa - ar1062000, 7 weeks ago : fix: userId bang operator in login service
+2cd0b78 - ar1062000, 7 weeks ago : feat: login velocity anomaly detection with Redis sorted set and forced MFA flag
+f5bd6f7 - ar1062000, 7 weeks ago : feat: credential stuffing detection with Redis sliding window and IP blocking
+b7503e7 - ar1062000, 8 weeks ago : fix: Add egnine url and timeout in env.ts
+0b5e698 - ar1062000, 8 weeks ago : feat: wire AI risk engine into login flow with adaptive MFA and failOpen behavior
+af67bde - ar1062000, 8 weeks ago : feat: XGBoost training pipeline, synthetic dataset generator, evaluation script
+7f75fde - ar1062000, 8 weeks ago : fix: added script to install pytest in ci
+f6b2ab2 - ar1062000, 8 weeks ago : fix: added script to install pytest in ci
+c5428a1 - ar1062000, 8 weeks ago : fix: made CI to use .venv for testing
+396d77a - ar1062000, 8 weeks ago : feat: AI engine scaffold with FastAPI, feature engineering, placeholder inference, and tests
+baede17 - ar1062000, 8 weeks ago : chore: rate limiter decoupling, auth limit bump, type fixes, orphaned row protection
+8fa1f6b - ar1062000, 8 weeks ago : feat: capture lastLoginIp on login and mfa verify, defer geo lookup to Phase 3
+a3ae7a7 - ar1062000, 9 weeks ago : Fix: fixed the user-auth and user-login test files by adding bang operator to accessToken and refreshToken variables. Cleanup scheduled on week 5 saturday
+d518627 - ar1062000, 9 weeks ago : feat: MFA verification in login flow with session challenge pattern
+466e8a5 - ar1062000, 10 weeks ago : fix: bypassed rate limiter middleware in test environment, added headers with ot implied' although
+1b5e041 - ar1062000, 10 weeks ago : feat: TOTP MFA setup, enable, and disable with QR code generation
+425ed02 - ar1062000, 10 weeks ago : feat: user password reset with OTP verification, session revocation, and audit logging
+e2b8993 - ar1062000, 2 months ago : feat: tenant admin password reset with OTP verification and session invalidation
+decbd3d - ar1062000, 2 months ago : feat: user management endpoints — list users, GDPR delete with audit trail
+9d54b7b - ar1062000, 2 months ago : feat: audit log endpoint with pagination, filtering, and login event logging
+8465f2c - ar1062000, 3 months ago : feat: API key rotation with session invalidation and audit log entry
+756a33d - ar1062000, 3 months ago : feat: tenant settings GET and PUT with partial merge and boundary validation
+f9047c7 - ar1062000, 3 months ago : added cookie secret in ci env
+966bee6 - ar1062000, 3 months ago : Merge branch 'temp-dashboard-fix'
+601263b - ar1062000, 3 months ago : feat: tenant dashboard login and logout with httpOnly session cookie
+e2d2a33 - ar1062000, 3 months ago : fix: added jwt refresh secret to ci file
+8e0a1ec - ar1062000, 3 months ago : fix: removed seccrets from ci.yml
+e120549 - ar1062000, 3 months ago : fix: added jwt refresh secret to ci file
+28312b8 - ar1062000, 3 months ago : feat: JWT verification middleware, logout, and token refresh endpoint
+9b0d7e0 - ar1062000, 3 months ago : feat: user login with RS256 JWT issuance and session record creation
+a6c5935 - ar1062000, 3 months ago : feat: user registration and email verification scoped to tenant with RLS
+b6b1783 - ar1062000, 3 months ago : fix: add google api related envs in ci.yml
+0c83584 - ar1062000, 3 months ago : fix: add some configs in packages/types/ to pass CI
+0b41b0f - ar1062000, 3 months ago : fix: add build step in ci.yml
+4426e6c - ar1062000, 3 months ago : fix: fix unused vars in tenant-auth.test.ts
+2ff2f4d - ar1062000, 3 months ago : feat: complete tenantContext middleware with verified tenant check and context typing
+34feb5a - ar1062000, 3 months ago : fix: made the master encryption key optional in env.ts
+dbe67c9 - ar1062000, 3 months ago : fix: Add Master_Encryption_Key in env
+e183f71 - ar1062000, 3 months ago : Fix: Add private-key encryption in database, & Add OTP expiry feature in tenant verification service, fixed the tests too
+635a0b7 - ar1062000, 3 months ago : fix: add dummy public key/secret key hash to database before verification
+c9c0c71 - ar1062000, 3 months ago : fix: optional oauth vars
+842ea1b - ar1062000, 3 months ago : feat: tenant registration with email verification via GMAIL OAuth2
+61b03f1 - ar1062000, 4 months ago : feat: integration tests, seed utility, request ID middleware, Phase 2 env prep
+1df3e48 - ar1062000, 4 months ago : fix: fixed the import error in tenant-context middleware
+c7f52e7 - ar1062000, 4 months ago : fix: skip server binding in test environment to prevent port conflicts in CI
+9d7120a - ar1062000, 4 months ago : feat: API structure with error handling, response utils, health route, tenant context middleware
+41c4e18 - ar1062000, 4 months ago : feat: Redis token bucket rate limiter with hono middleware and tests
+90889f4 - ar1062000, 4 months ago : fix: add parameterized query in rls middleware to prevent sql injection
+2f93b9c - ar1062000, 4 months ago : fix: fix the ci.yml flow, placing test below all other scripts
+3ec432f - ar1062000, 4 months ago : fix: move CI app_user setup to SQL file to fix password auth failure
+d331108 - ar1062000, 4 months ago : feat: centralized env config with Zod + RLS withTenant middleware + isolation tests | fix: create non-superuser app_user role so RLS policies are enforced correctly | feat: RLS working with app_user role, all 7 tests passing
+a0a0685 - ar1062000, 4 months ago : fix: bypass turbo in CI to ensure env vars are inherited by test process
+291ac12 - ar1062000, 4 months ago : fix: load dotenv in vitest config to ensure DATABASE_URL available before pool creation
+6f98e0e - ar1062000, 4 months ago : fix: fix the with block conflict in the ci.yml file
+d1894d7 - ar1062000, 4 months ago : fix: fix the pnpm version conflict in the ci.yml file
+bb213a6 - ar1062000, 4 months ago : ci: add Github Actions workflow with vitest smoke tests
+acdbc98 - ar1062000, 4 months ago : feat: finalized schema with 6 tables, RLS policies, and composite indexes
+b33570d - ar1062000, 4 months ago : chore: add Docker Compose for PostgreSQL 15 and Redis 7 with connection test
+e7930ca - ar1062000, 4 months ago : chore: add ESLint and Prettier with VS Code workspace setting
+e6688e3 - ar1062000, 4 months ago : chore: init monorepo with api, sdk, dashboard, shared types
