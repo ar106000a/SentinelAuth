@@ -2,6 +2,7 @@ import { useContext, useEffect, useRef } from "react";
 import { SentinelAuthContext } from "./SentinelAuthProvider.js";
 import { useRegisterComponents } from "./useRegisterComponents.js";
 import type { LoginResponse, MfaVerifyResponse } from "@sentinelauth/types";
+import { SentinelAuthFlowElement } from "@sentinelauth/sdk/components";
 
 export interface SentinelAuthLoginFlowProps {
   /** Called when login completes fully -- whether or not MFA was involved.
@@ -18,7 +19,7 @@ export function SentinelAuthLoginFlow({
 }: SentinelAuthLoginFlowProps) {
   const sdk = useContext(SentinelAuthContext);
   const registered = useRegisterComponents();
-  const elementRef = useRef<any>(null);
+  const elementRef = useRef<SentinelAuthFlowElement>(null);
 
   if (!sdk) {
     throw new Error(
@@ -36,6 +37,7 @@ export function SentinelAuthLoginFlow({
       onSuccess?.((e as CustomEvent<LoginResponse | MfaVerifyResponse>).detail);
     };
 
+    // eslint-disable-next-line
     const handleError = (e: Event) => {
       onError?.((e as CustomEvent<{ message: string }>).detail);
     };
@@ -48,10 +50,7 @@ export function SentinelAuthLoginFlow({
     // handleError here is a forward-looking no-op today, kept for
     // interface symmetry with components that DO emit one (Wednesday's
     // MFA setup wrapper will actually use it).
-    elementRef.current.addEventListener(
-      "sentinel-auth-complete",
-      handleComplete
-    );
+    el.addEventListener("sentinel-auth-complete", handleComplete);
 
     return () => {
       el.removeEventListener("sentinel-auth-complete", handleComplete);

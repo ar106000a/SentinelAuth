@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, waitFor } from "@testing-library/react";
 import { SentinelAuthProvider } from "./SentinelAuthProvider.js";
 import { SentinelAuthLoginFlow } from "./SentinelAuthLoginFlow.js";
+import { SentinelAuthFlowElement } from "@sentinelauth/sdk/components";
 
 // Mock the SDK's core client -- this test file is about the REACT
 // wrapper's behavior, not re-testing sentinel-auth-flow's own internal
@@ -67,7 +68,9 @@ describe("SentinelAuthLoginFlow", () => {
     const { container } = renderWithProvider(<SentinelAuthLoginFlow />);
 
     await waitFor(() => {
-      const el = container.querySelector("sentinel-auth-flow") as any;
+      const el = container.querySelector(
+        "sentinel-auth-flow"
+      ) as SentinelAuthFlowElement;
       expect(el).toBeTruthy();
     });
 
