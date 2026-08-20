@@ -1,7 +1,7 @@
-import { useContext, useEffect, useRef } from "react";
-import { SentinelAuthContext } from "./SentinelAuthProvider.js";
+import { useEffect, useRef } from "react";
 import { useRegisterComponents } from "./useRegisterComponents.js";
 import type { SentinelAuthPasswordResetFlowElement } from "@sentinelauth/sdk/components";
+import { useSentinelAuth } from "./useSentinelAuth.js";
 
 export interface SentinelAuthPasswordResetFlowProps {
   onSuccess?: (result: { email: string; message: string }) => void;
@@ -12,15 +12,9 @@ export function SentinelAuthPasswordResetFlow({
   onSuccess,
   onError,
 }: SentinelAuthPasswordResetFlowProps) {
-  const sdk = useContext(SentinelAuthContext);
+  const { sdk } = useSentinelAuth();
   const registered = useRegisterComponents();
   const elementRef = useRef<SentinelAuthPasswordResetFlowElement | null>(null);
-
-  if (!sdk) {
-    throw new Error(
-      "<SentinelAuthPasswordResetFlow> must be used within a <SentinelAuthProvider>."
-    );
-  }
 
   useEffect(() => {
     const el = elementRef.current;

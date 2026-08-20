@@ -1,8 +1,8 @@
-import { useContext, useEffect, useRef } from "react";
-import { SentinelAuthContext } from "./SentinelAuthProvider.js";
+import {  useEffect, useRef } from "react";
 import { useRegisterComponents } from "./useRegisterComponents.js";
 import type { SentinelAuthRegisterFlowElement } from "@sentinelauth/sdk/components";
 import type { UserVerifyEmailResponse } from "@sentinelauth/types";
+import { useSentinelAuth } from "./useSentinelAuth.js";
 
 export interface SentinelAuthRegisterFlowProps {
   onSuccess?: (result: { email: string; response: UserVerifyEmailResponse }) => void;
@@ -13,15 +13,9 @@ export function SentinelAuthRegisterFlow({
   onSuccess,
   onError,
 }: SentinelAuthRegisterFlowProps) {
-  const sdk = useContext(SentinelAuthContext);
+  const {sdk} = useSentinelAuth();
   const registered = useRegisterComponents();
   const elementRef = useRef<SentinelAuthRegisterFlowElement | null>(null);
-
-  if (!sdk) {
-    throw new Error(
-      "<SentinelAuthRegisterFlow> must be used within a <SentinelAuthProvider>."
-    );
-  }
 
   useEffect(() => {
       const el = elementRef.current;

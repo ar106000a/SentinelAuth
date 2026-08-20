@@ -1,8 +1,8 @@
-import { useContext, useEffect, useRef } from "react";
-import { SentinelAuthContext } from "./SentinelAuthProvider.js";
+import {  useEffect, useRef } from "react";
 import { useRegisterComponents } from "./useRegisterComponents.js";
 import type { LoginResponse, MfaVerifyResponse } from "@sentinelauth/types";
 import { SentinelAuthFlowElement } from "@sentinelauth/sdk/components";
+import { useSentinelAuth } from "./useSentinelAuth.js";
 
 export interface SentinelAuthLoginFlowProps {
   /** Called when login completes fully -- whether or not MFA was involved.
@@ -17,15 +17,11 @@ export function SentinelAuthLoginFlow({
   onSuccess,
   onError,
 }: SentinelAuthLoginFlowProps) {
-  const sdk = useContext(SentinelAuthContext);
+  const {sdk} = useSentinelAuth();
   const registered = useRegisterComponents();
   const elementRef = useRef<SentinelAuthFlowElement | null>(null);
 
-  if (!sdk) {
-    throw new Error(
-      "<SentinelAuthLoginFlow> must be used within a <SentinelAuthProvider>."
-    );
-  }
+
 
   useEffect(() => {
     const el = elementRef.current;
