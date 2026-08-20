@@ -19,7 +19,7 @@ export function SentinelAuthLoginFlow({
 }: SentinelAuthLoginFlowProps) {
   const sdk = useContext(SentinelAuthContext);
   const registered = useRegisterComponents();
-  const elementRef = useRef<SentinelAuthFlowElement>(null);
+  const elementRef = useRef<SentinelAuthFlowElement | null>(null);
 
   if (!sdk) {
     throw new Error(
