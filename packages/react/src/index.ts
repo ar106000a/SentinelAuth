@@ -10,3 +10,11 @@ export { SentinelAuthRegisterFlow } from "./SentinelAuthRegisterFlow.js";
 export type { SentinelAuthRegisterFlowProps } from "./SentinelAuthRegisterFlow.js";
 export { SentinelAuthPasswordResetFlow } from "./SentinelAuthPasswordResetFlow.js";
 export type { SentinelAuthPasswordResetFlowProps } from "./SentinelAuthPasswordResetFlow.js";
+// packages/react/src/index.ts additions
+export { SentinelAuthMfaSetup } from "./SentinelAuthMfaSetup.js";
+export type {
+  SentinelAuthMfaSetupProps,
+  SentinelAuthMfaSetupHandle,
+} from "./SentinelAuthMfaSetup.js";
+export { SentinelAuthMfaDisable } from "./SentinelAuthMfaDisable.js";
+export type { SentinelAuthMfaDisableProps } from "./SentinelAuthMfaDisable.js";
