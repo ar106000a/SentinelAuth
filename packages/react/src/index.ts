@@ -18,3 +18,5 @@ export type {
 } from "./SentinelAuthMfaSetup.js";
 export { SentinelAuthMfaDisable } from "./SentinelAuthMfaDisable.js";
 export type { SentinelAuthMfaDisableProps } from "./SentinelAuthMfaDisable.js";
+export { SentinelAuthLogoutButton } from "./SentinelAuthLogoutButton.js";
+export type { SentinelAuthLogoutButtonProps } from "./SentinelAuthLogoutButton.js";
