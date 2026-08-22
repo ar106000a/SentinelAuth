@@ -34,7 +34,7 @@ app.use("*", logger());
 app.use(
   "*",
   cors({
-    origin: ["http://localhost:3001"], // dashboard dev server
+    origin: ["http://localhost:3001","http://localhost:3003"], // dashboard dev server
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization", "X-User-Token"],
     exposeHeaders: ["X-RateLimit-Limit", "X-RateLimit-Remaining"],
