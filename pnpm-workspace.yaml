@@ -3,6 +3,7 @@ packages:
   - "sdk"
   - "dashboard"
   - "sample-app"
+  - "reference-app"
   - "packages/*"
 allowBuilds:
   '@prisma/engines': false
