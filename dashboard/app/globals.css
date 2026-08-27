@@ -1,26 +1,164 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* =========================================================================
+   SENTINELAUTH DASHBOARD — DESIGN TOKENS
+   Single dark theme. The risk gradient (green → amber → red) is the one
+   signature device of this product — it appears on risk scores, the
+   loading/signal line, and nowhere else as decoration. Everything else
+   stays quiet and neutral so the gradient keeps its meaning.
+   ========================================================================= */
+
+@theme {
+  /* --- Surfaces -------------------------------------------------------- */
+  --color-base: #0b0d10;
+  --color-surface: #14171b;
+  --color-surface-hover: #1a1e24;
+  --color-surface-raised: #1c2127;
+
+  /* --- Borders ----------------------------------------------------------*/
+  --color-border: #22262c;
+  --color-border-strong: #2c3138;
+
+  /* --- Text -------------------------------------------------------------*/
+  --color-text-primary: #e7e9ea;
+  --color-text-secondary: #8b92a0;
+  --color-text-tertiary: #5b6270;
+
+  /* --- Risk gradient (THE signature — reuse, never reinvent) ----------- */
+  --color-risk-low: #2ed573; /* 0.0 – trusted */
+  --color-risk-mid: #ffb020; /* 0.5 – elevated */
+  --color-risk-high: #ff3b5c; /* 1.0 – blocked / destructive */
+
+  /* Destructive actions borrow risk-high on purpose: revoking a key or
+     deleting a user IS a high-risk action in this product's vocabulary. */
+  --color-danger: #ff3b5c;
+  --color-danger-hover: #ff5470;
+
+  /* --- Focus ring — visible, never a new hue ---------------------------*/
+  --color-focus: #e7e9ea;
+
+  /* --- Radius ------------------------------------------------------------*/
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
+
+  /* --- Fonts (variables populated by next/font in layout.tsx) ---------- */
+  --font-display: var(--font-space-grotesk), ui-sans-serif, sans-serif;
+  --font-body: var(--font-inter), ui-sans-serif, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+
+  /* --- Motion ------------------------------------------------------------*/
+  --animate-signal-sweep: signal-sweep 1.4s ease-in-out infinite;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes signal-sweep {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
   }
 }
 
+/* =========================================================================
+   BASE
+   ========================================================================= */
+
+html {
+  color-scheme: dark;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+/* Visible keyboard focus everywhere — never suppressed. */
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* =========================================================================
+   TYPE SCALE
+   Space Grotesk carries headings, Inter carries body copy, JetBrains Mono
+   carries every number — risk scores, IDs, timestamps, counts. Numbers in
+   this product are evidence; they read as data, not prose.
+   ========================================================================= */
+
+.text-display-xl {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.text-display-lg {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.text-display-md {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.text-body {
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.text-caption {
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
+.text-data {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* =========================================================================
+   THE SIGNAL LINE
+   The core visual signature. A 2px gradient sweep from risk-low through
+   risk-mid to risk-high. Used as: the top edge of risk-bearing cards, the
+   route-change / async loading indicator, and the spine behind the risk
+   score badge. It never appears as generic decoration.
+   ========================================================================= */
+
+.gradient-signal {
+  background: linear-gradient(
+    90deg,
+    var(--color-risk-low) 0%,
+    var(--color-risk-mid) 50%,
+    var(--color-risk-high) 100%
+  );
 }

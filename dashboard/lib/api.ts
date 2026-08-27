@@ -1,53 +1,92 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+import { API_URL } from "@/lib/env";
 
-export class DashboardApiError extends Error {
-  constructor(
-    message: string,
-    public code: string,
-    public statusCode: number
-  ) {
+/**
+ * Mirrors the error envelope's `code` field
+ * (AppError hierarchy in API_IMPLEMENTATION_DETAILS.md §9) — narrow, not
+ * exhaustive; add codes here as the dashboard needs to branch on them.
+ */
+export type ApiErrorCode =
+  | "VALIDATION_ERROR"
+  | "AUTHENTICATION_ERROR"
+  | "FORBIDDEN"
+  | "NOT_FOUND"
+  | "CONFLICT"
+  | "RATE_LIMITED"
+  | "INTERNAL_ERROR";
+
+export class ApiError extends Error {
+  code: ApiErrorCode;
+  status: number;
+
+  constructor(message: string, code: ApiErrorCode, status: number) {
     super(message);
-    this.name = "DashboardApiError";
+    this.name = "ApiError";
+    this.code = code;
+    this.status = status;
   }
 }
 
-async function request<T>(
-  method: "GET" | "POST" | "PUT" | "DELETE",
+interface SuccessEnvelope<T> {
+  success: true;
+  data: T;
+  timestamp: string;
+}
+
+interface ErrorEnvelope {
+  success: false;
+  error: { message: string; code: ApiErrorCode };
+  timestamp: string;
+}
+
+/**
+ * Client-side fetch wrapper for the dashboard's own browser calls to
+ * `/dashboard/*`. Always sends credentials so the `dashboard_session`
+ * HttpOnly cookie goes along — this only works because the API's CORS
+ * config explicitly allows `http://localhost:3001` with credentials.
+ */
+export async function apiFetch<T>(
   path: string,
-  body?: unknown
+  options: RequestInit = {}
 ): Promise<T> {
+  console.log("apiFetch hitting:", `${API_URL}${path}`);
   const res = await fetch(`${API_URL}${path}`, {
-    method,
-    credentials: "include", // sends/receives dashboard_session automatically
-    headers: body ? { "Content-Type": "application/json" } : {},
-    body: body ? JSON.stringify(body) : undefined,
+    ...options,
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 
-  const parsed = await res.json();
+  const body = (await res.json()) as SuccessEnvelope<T> | ErrorEnvelope;
 
-  if (!res.ok || parsed.success === false) {
-    throw new DashboardApiError(
-      parsed.error?.message ?? "Request failed",
-      parsed.error?.code ?? "UNKNOWN_ERROR",
-      res.status
-    );
+  if (!body.success) {
+    throw new ApiError(body.error.message, body.error.code, res.status);
   }
 
-  return parsed.data as T;
+  return body.data;
 }
 
-export const dashboardApi = {
-  login: (adminEmail: string, password: string) =>
-    request<{ tenantId: string; tenantName: string; message: string }>(
-      "POST",
-      "/dashboard/login",
-      { adminEmail, password }
-    ),
-  logout: () => request<{ message: string }>("POST", "/dashboard/logout"),
-  me: () =>
-    request<{
-      tenantId: string;
-      tenantName: string;
-      settings: { riskThreshold: number; failOpen: boolean };
-    }>("GET", "/dashboard/me"),
-};
+export interface DashboardMe {
+  tenantId: string;
+  tenantName: string;
+  settings: { riskThreshold: number; failOpen: boolean };
+}
+
+/**
+ * API_IMPLEMENTATION_DETAILS.md documents the request body and the cookie
+ * side effect but not the exact `data` payload shape on success — the
+ * cookie is what actually matters (the caller doesn't need the response
+ * body, just a thrown ApiError on failure), so this is typed `unknown`
+ * rather than guessed. Tighten it once the real response is confirmed.
+ */
+export function dashboardLogin(adminEmail: string, password: string) {
+  return apiFetch<unknown>("/dashboard/login", {
+    method: "POST",
+    body: JSON.stringify({ adminEmail, password }),
+  });
+}
+
+export function dashboardLogout() {
+  return apiFetch<void>("/logout", { method: "POST" });
+}

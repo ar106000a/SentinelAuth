@@ -1,35 +1,34 @@
+// dashboard/tsconfig.json
 {
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "extends": "../tsconfig.base.json",
-    "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "noEmit": true,
-    "esModuleInterop": true,
+    // Next.js owns module resolution/output — these override the Node-oriented
+    // NodeNext settings in the base, which don't apply to a bundled browser app.
     "module": "esnext",
     "moduleResolution": "bundler",
+    "noEmit": true,
+
+    // Needed for a browser/React app; the base has neither since it's written
+    // for Node services.
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "jsx": "preserve",
+
+    // Standard Next.js requirements.
+    "allowJs": false,
+    "esModuleInterop": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "react-jsx",
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
+    "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./*"]
     }
+
+    // target, strict, skipLibCheck, forceConsistentCasingInFileNames,
+    // declaration/declarationMap/sourceMap all inherited from the base —
+    // declaration/sourceMap are effectively moot here since noEmit suppresses
+    // all output anyway.
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts"
-  ],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
 }
