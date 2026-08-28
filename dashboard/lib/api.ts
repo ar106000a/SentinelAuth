@@ -88,5 +88,5 @@ export function dashboardLogin(adminEmail: string, password: string) {
 }
 
 export function dashboardLogout() {
-  return apiFetch<void>("/logout", { method: "POST" });
+  return apiFetch<void>("/dashboard/logout", { method: "POST" });
 }
