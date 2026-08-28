@@ -9,9 +9,16 @@
  * instead of re-deriving its own color logic.
  */
 
-const RISK_LOW = { r: 0x2e, g: 0xd5, b: 0x73 }; // --color-risk-low
-const RISK_MID = { r: 0xff, g: 0xb0, b: 0x20 }; // --color-risk-mid
-const RISK_HIGH = { r: 0xff, g: 0x3b, b: 0x5c }; // --color-risk-high
+import { RISK_GRADIENT_HEX } from "@/lib/tokens";
+
+function hexToRgb(hex: string) {
+  const n = parseInt(hex.slice(1), 16);
+  return { r: (n >> 16) & 0xff, g: (n >> 8) & 0xff, b: n & 0xff };
+}
+
+const RISK_LOW = hexToRgb(RISK_GRADIENT_HEX.low);
+const RISK_MID = hexToRgb(RISK_GRADIENT_HEX.mid);
+const RISK_HIGH = hexToRgb(RISK_GRADIENT_HEX.high);
 
 function lerp(a: number, b: number, t: number) {
   return Math.round(a + (b - a) * t);

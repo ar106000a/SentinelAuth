@@ -50,6 +50,7 @@
 
   /* --- Motion ------------------------------------------------------------*/
   --animate-signal-sweep: signal-sweep 1.4s ease-in-out infinite;
+  --animate-toast-in: toast-in 0.2s ease-out;
 }
 
 @keyframes signal-sweep {
@@ -58,6 +59,16 @@
   }
   100% {
     background-position: -200% 0;
+  }
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -88,7 +99,9 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
