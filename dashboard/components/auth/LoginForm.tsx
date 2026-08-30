@@ -19,7 +19,7 @@ export function LoginForm() {
     setSubmitting(true);
     try {
       await dashboardLogin(adminEmail, password);
-      router.push("/");
+      router.push("/app");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Try again.");

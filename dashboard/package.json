@@ -17,7 +17,9 @@
     "class-variance-authority": "^0.7.1",
     "lucide-react": "^0.469.0",
     "server-only": "^0.0.1",
-    "recharts": "^3.0.0"
+    "recharts": "^3.0.0",
+    "gsap": "^3.12.5",
+    "@gsap/react": "^2.1.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",

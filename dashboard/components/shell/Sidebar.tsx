@@ -15,11 +15,11 @@ import { NavLink } from "./NavLink";
  * between.
  */
 const NAV_ITEMS = [
-  { href: "/", label: "Overview", icon: <LayoutDashboard /> },
-  { href: "/users", label: "Users", icon: <Users /> },
-  { href: "/audit-logs", label: "Audit logs", icon: <ScrollText /> },
-  { href: "/api-keys", label: "API keys", icon: <KeyRound /> },
-  { href: "/settings", label: "Settings", icon: <Settings /> },
+  { href: "/app", label: "Overview", icon: <LayoutDashboard /> },
+  { href: "/app/users", label: "Users", icon: <Users /> },
+  { href: "/app/audit-logs", label: "Audit logs", icon: <ScrollText /> },
+  { href: "/app/api-keys", label: "API keys", icon: <KeyRound /> },
+  { href: "/app/settings", label: "Settings", icon: <Settings /> },
 ];
 
 export function Sidebar() {

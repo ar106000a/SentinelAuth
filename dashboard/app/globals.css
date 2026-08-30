@@ -51,6 +51,17 @@
   /* --- Motion ------------------------------------------------------------*/
   --animate-signal-sweep: signal-sweep 1.4s ease-in-out infinite;
   --animate-toast-in: toast-in 0.2s ease-out;
+
+  /* --- Code syntax highlighting -----------------------------------------
+     Scoped to code/terminal blocks only — a conventional, desaturated
+     IDE-style palette. Deliberately NOT reused as product UI accents and
+     deliberately distinct from the risk-gradient hexes, so a code block
+     never reads as carrying risk-score meaning. */
+  --color-code-keyword: #89b4fa;
+  --color-code-component: #f9c97c;
+  --color-code-string: #a6e3a1;
+  --color-code-property: #94e2d5;
+  --color-code-comment: #6c7086;
 }
 
 @keyframes signal-sweep {
@@ -174,4 +185,27 @@ body {
     var(--color-risk-mid) 50%,
     var(--color-risk-high) 100%
   );
+}
+.text-display-xl {
+  font-family: var(--font-display);
+  font-size: clamp(1.875rem, 1.2rem + 3vw, 2.5rem);
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.text-display-lg {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 1.1rem + 2vw, 2rem);
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.text-display-md {
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 1.05rem + 1vw, 1.5rem);
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }

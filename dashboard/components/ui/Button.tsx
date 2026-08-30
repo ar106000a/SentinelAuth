@@ -17,17 +17,21 @@ import { cn } from "@/lib/cn";
  *   drawn from the same red as a maxed-out risk score — in this product's
  *   vocabulary, both mean "this is the dangerous end."
  */
-const buttonVariants = cva(
+export const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 rounded-[var(--radius-sm)] text-sm font-medium font-body transition-colors duration-150 disabled:opacity-40 disabled:pointer-events-none",
   {
     variants: {
       variant: {
-        primary: "bg-[var(--color-text-primary)] text-[var(--color-base)] hover:bg-white",
+        primary:
+          "bg-[var(--color-text-primary)] text-[var(--color-base)] hover:bg-white",
         secondary:
           "bg-[var(--color-surface-raised)] text-[var(--color-text-primary)] border border-[var(--color-border-strong)] hover:bg-[var(--color-surface-hover)]",
+        outline:
+          "bg-transparent text-[var(--color-text-primary)] border border-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:border-[var(--color-text-primary)]",
         ghost:
           "bg-transparent text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]",
-        danger: "bg-[var(--color-danger)] text-white hover:bg-[var(--color-danger-hover)]",
+        danger:
+          "bg-[var(--color-danger)] text-white hover:bg-[var(--color-danger-hover)]",
       },
       size: {
         sm: "h-8 px-3",
@@ -43,7 +47,8 @@ const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement>,
+  extends
+    ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {}
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(

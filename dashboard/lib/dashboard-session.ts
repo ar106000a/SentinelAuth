@@ -67,6 +67,6 @@ export async function redirectIfAuthenticated(): Promise<void> {
     | ErrorEnvelope;
 
   if (body.success) {
-    redirect("/");
+    redirect("/app");
   }
 }
