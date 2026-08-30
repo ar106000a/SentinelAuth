@@ -62,6 +62,7 @@ export default function DesignSystemPage() {
             <Button variant="primary" disabled>
               Disabled
             </Button>
+            <Button variant="outline">Outline</Button>
           </Card>
         </section>
 
@@ -163,7 +164,7 @@ export default function DesignSystemPage() {
           <h2 className="text-display-md">Charts</h2>
           <ChartDemo />
         </section>
-        
+
         <section className="space-y-4">
           <h2 className="text-display-md">Type scale</h2>
           <Card className="p-5 space-y-3">
