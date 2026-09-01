@@ -3,10 +3,10 @@ import { buttonVariants } from "@/components/ui/Button";
 import { MobileNav } from "@/components/marketing/MobileNav";
 
 const NAV_LINKS = [
-  { href: "#features", label: "Features" },
-  { href: "#how-it-works", label: "How it works" },
-  { href: "#quickstart", label: "Quickstart" },
-  { href: "#security", label: "Security" },
+  { href: "/#features", label: "Features" },
+  { href: "/#how-it-works", label: "How it works" },
+  { href: "/#quickstart", label: "Quickstart" },
+  { href: "/#security", label: "Security" },
 ];
 
 export function MarketingHeader() {
