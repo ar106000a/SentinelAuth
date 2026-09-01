@@ -29,6 +29,12 @@
     // declaration/sourceMap are effectively moot here since noEmit suppresses
     // all output anyway.
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "globals.d.ts"
+  ],
   "exclude": ["node_modules"]
 }

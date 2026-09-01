@@ -90,3 +90,33 @@ export function dashboardLogin(adminEmail: string, password: string) {
 export function dashboardLogout() {
   return apiFetch<void>("/dashboard/logout", { method: "POST" });
 }
+export function registerTenant(
+  name: string,
+  adminEmail: string,
+  password: string
+) {
+  return apiFetch<{ message: string }>("/tenants/register", {
+    method: "POST",
+    body: JSON.stringify({ name, adminEmail, password }),
+  });
+}
+
+export interface TenantVerifyResult {
+  tenantId: string;
+  publicKey: string;
+  secretKey: string;
+  message: string;
+}
+
+export function verifyTenantEmail(adminEmail: string, otp: string) {
+  return apiFetch<TenantVerifyResult>("/tenants/verify-email", {
+    method: "POST",
+    body: JSON.stringify({ adminEmail, otp }),
+  });
+}
+export function requestTenantPasswordReset(adminEmail: string) {
+  return apiFetch<{ message: string }>("/tenants/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ adminEmail }),
+  });
+}
