@@ -130,3 +130,17 @@ export function resetTenantPassword(
     body: JSON.stringify({ adminEmail, otp, newPassword }),
   });
 }
+/**
+ * API_IMPLEMENTATION_DETAILS.md documents the request body and the merge
+ * behavior but not the exact success response shape — typed `unknown` for
+ * the same reason as dashboardLogin above, rather than guessed.
+ */
+export function updateTenantSettings(partial: {
+  riskThreshold?: number;
+  failOpen?: boolean;
+}) {
+  return apiFetch<unknown>("/dashboard/settings", {
+    method: "PUT",
+    body: JSON.stringify(partial),
+  });
+}

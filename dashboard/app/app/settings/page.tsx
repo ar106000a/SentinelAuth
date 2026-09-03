@@ -1,25 +1,16 @@
-import { Card } from "@/components/ui/Card";
+import { requireDashboardSession } from "@/lib/dashboard-session";
+import { SettingsForm } from "@/components/app/SettingsForm";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const { settings } = await requireDashboardSession();
+
   return (
-    <div className="space-y-6">
+    <div className="max-w-3xl space-y-6">
       <h1 className="text-display-xl">Settings</h1>
-      <Card className="p-8">
-        <p className="text-body text-[var(--color-text-secondary)]">
-          <code className="text-data text-[var(--color-text-primary)]">
-            riskThreshold
-          </code>{" "}
-          and{" "}
-          <code className="text-data text-[var(--color-text-primary)]">
-            failOpen
-          </code>{" "}
-          from{" "}
-          <code className="text-data text-[var(--color-text-primary)]">
-            GET/PUT /dashboard/settings
-          </code>
-          .
-        </p>
-      </Card>
+      <SettingsForm
+        initialRiskThreshold={settings.riskThreshold}
+        initialFailOpen={settings.failOpen}
+      />
     </div>
   );
 }
