@@ -4,9 +4,11 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import {
+  PasswordFields,
+  MIN_PASSWORD_LENGTH,
+} from "@/components/auth/PasswordFields";
 import { registerTenant, ApiError } from "@/lib/api";
-
-const MIN_PASSWORD_LENGTH = 12;
 
 export function RegisterForm() {
   const router = useRouter();
@@ -16,17 +18,6 @@ export function RegisterForm() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  // Live, not just on submit — matches the confirm-password behavior
-  // already shipped in the SDK's own register component.
-  const confirmError =
-    confirmPassword.length > 0 && confirmPassword !== password
-      ? "Passwords don't match."
-      : undefined;
-  const passwordHint =
-    password.length > 0 && password.length < MIN_PASSWORD_LENGTH
-      ? `At least ${MIN_PASSWORD_LENGTH} characters (${password.length}/${MIN_PASSWORD_LENGTH}).`
-      : undefined;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -72,23 +63,12 @@ export function RegisterForm() {
         value={adminEmail}
         onChange={(e) => setAdminEmail(e.target.value)}
       />
-      <Input
-        label="Password"
-        type="password"
-        autoComplete="new-password"
-        required
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        error={passwordHint}
-      />
-      <Input
-        label="Confirm password"
-        type="password"
-        autoComplete="new-password"
-        required
-        value={confirmPassword}
-        onChange={(e) => setConfirmPassword(e.target.value)}
-        error={confirmError}
+      <PasswordFields
+        password={password}
+        onPasswordChange={setPassword}
+        confirmPassword={confirmPassword}
+        onConfirmPasswordChange={setConfirmPassword}
+        disabled={submitting}
       />
 
       {error && (

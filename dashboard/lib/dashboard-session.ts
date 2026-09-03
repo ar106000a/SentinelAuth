@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { API_URL } from "@/lib/env";
@@ -21,11 +22,18 @@ interface ErrorEnvelope {
  * cookie has to be read explicitly and attached to the `Cookie` header
  * by hand.
  *
- * Redirects to /login if there's no session or the API rejects it —
- * every page under app/(dashboard)/ relies on this running in the layout
- * before rendering.
+ * Wrapped in React's cache() — not Next's fetch cache, which is disabled
+ * here via `cache: "no-store"` on purpose since a session check must
+ * always be fresh. React's cache() only dedupes calls within a single
+ * render pass: the shell layout calls this for the Topbar, and every page
+ * under app/app/ will also call it for its own data (Overview needs
+ * settings, Settings needs riskThreshold, etc.) — without this, each page
+ * load would hit /dashboard/me twice.
+ *
+ * Redirects to /login if there's no session or the API rejects it — every
+ * page under app/app/ relies on this running before rendering.
  */
-export async function requireDashboardSession(): Promise<DashboardMe> {
+export const requireDashboardSession = cache(async (): Promise<DashboardMe> => {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("dashboard_session")?.value;
 
@@ -47,7 +55,7 @@ export async function requireDashboardSession(): Promise<DashboardMe> {
   }
 
   return body.data;
-}
+});
 
 /**
  * Inverse of requireDashboardSession, for /login: if there's already a

@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { SecretReveal } from "@/components/ui/SecretReveal";
+import { OtpInput } from "@/components/auth/OtpInput";
 import {
   verifyTenantEmail,
   ApiError,
@@ -56,24 +57,7 @@ export function VerifyEmailFlow({ email }: { email: string }) {
         <span className="text-[var(--color-text-primary)]">{email}</span>.
       </p>
 
-      <div className="space-y-1.5">
-        <label htmlFor="otp" className="text-caption block">
-          Verification code
-        </label>
-        <input
-          id="otp"
-          inputMode="numeric"
-          pattern="\d{6}"
-          maxLength={6}
-          autoComplete="one-time-code"
-          required
-          value={otp}
-          onChange={(e) =>
-            setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-          }
-          className="text-data h-12 w-full rounded-[var(--radius-sm)] border border-[var(--color-border-strong)] bg-[var(--color-surface-raised)] px-3 text-center text-2xl tracking-[0.5em] text-[var(--color-text-primary)] outline-none focus-visible:border-[var(--color-focus)]"
-        />
-      </div>
+      <OtpInput value={otp} onChange={setOtp} disabled={submitting} />
 
       {error && (
         <p role="alert" className="text-caption text-[var(--color-danger)]">
@@ -90,9 +74,6 @@ export function VerifyEmailFlow({ email }: { email: string }) {
         {submitting ? "Verifying…" : "Verify email"}
       </Button>
 
-      {/* No resend-OTP endpoint exists yet — noted as a tracked gap
-          elsewhere in the project. Not building a button against an
-          endpoint that doesn't exist. */}
       <p className="text-caption text-center">
         Didn&apos;t get a code? Check spam — resend isn&apos;t available yet.
       </p>

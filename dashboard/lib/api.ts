@@ -120,3 +120,13 @@ export function requestTenantPasswordReset(adminEmail: string) {
     body: JSON.stringify({ adminEmail }),
   });
 }
+export function resetTenantPassword(
+  adminEmail: string,
+  otp: string,
+  newPassword: string
+) {
+  return apiFetch<{ message: string }>("/tenants/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ adminEmail, otp, newPassword }),
+  });
+}

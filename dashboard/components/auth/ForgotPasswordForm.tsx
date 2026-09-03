@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -11,6 +12,8 @@ export function ForgotPasswordForm() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
+
+  const router = useRouter();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -37,23 +40,37 @@ export function ForgotPasswordForm() {
 
   if (sent) {
     return (
-      <div className="space-y-3 text-center">
+      <div className="space-y-4 text-center">
         <CheckCircle2
           className="mx-auto h-8 w-8 text-[var(--color-risk-low)]"
           aria-hidden="true"
         />
-        <p className="text-body text-[var(--color-text-primary)]">
-          Check your email
-        </p>
-        <p className="text-caption">
-          If an account exists for{" "}
-          <span className="text-[var(--color-text-primary)]">{adminEmail}</span>
-          , we&apos;ve sent a password reset code.
-        </p>
+        <div className="space-y-1">
+          <p className="text-body text-[var(--color-text-primary)]">
+            Check your email
+          </p>
+          <p className="text-caption">
+            If an account exists for{" "}
+            <span className="text-[var(--color-text-primary)]">
+              {adminEmail}
+            </span>
+            , we&apos;ve sent a password reset code.
+          </p>
+        </div>
+        <Button
+          variant="secondary"
+          className="w-full"
+          onClick={() =>
+            router.push(
+              `/reset-password?email=${encodeURIComponent(adminEmail)}`
+            )
+          }
+        >
+          I have my code
+        </Button>
       </div>
     );
   }
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <Input
