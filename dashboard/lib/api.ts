@@ -154,3 +154,45 @@ export function rotateApiKeys() {
     method: "POST",
   });
 }
+export interface TenantUser {
+  id: string;
+  email: string;
+  isVerified: boolean;
+  mfaEnabled: boolean;
+  lastLoginAt: string | null;
+  lastLoginIp: string | null;
+  createdAt: string;
+}
+
+export interface PaginatedUsers {
+  entries: TenantUser[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+/**
+ * NOTE: API_IMPLEMENTATION_DETAILS.md documents the `users` table schema
+ * and this endpoint's query params (search, page, limit) but not its
+ * exact response envelope. TenantUser's fields are the schema fields
+ * that are safe and relevant to show on a dashboard — deliberately
+ * excludes passwordHash, mfaSecret, and the geo/hour-profile fields.
+ * PaginatedUsers' shape follows this codebase's established pagination
+ * convention seen elsewhere, not a confirmed contract. Verify field/key
+ * names against a real response before relying on this.
+ */
+export function fetchTenantUsers(
+  params: { search?: string; page?: number; limit?: number } = {}
+) {
+  const query = new URLSearchParams();
+  if (params.search) query.set("search", params.search);
+  if (params.page) query.set("page", String(params.page));
+  if (params.limit) query.set("limit", String(params.limit));
+  const qs = query.toString();
+  return apiFetch<PaginatedUsers>(`/dashboard/users${qs ? `?${qs}` : ""}`);
+}
+
+export function deleteTenantUser(userId: string) {
+  return apiFetch<unknown>(`/dashboard/users/${userId}`, { method: "DELETE" });
+}
