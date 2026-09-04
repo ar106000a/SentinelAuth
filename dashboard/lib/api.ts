@@ -196,3 +196,39 @@ export function fetchTenantUsers(
 export function deleteTenantUser(userId: string) {
   return apiFetch<unknown>(`/dashboard/users/${userId}`, { method: "DELETE" });
 }
+
+export interface AuditLogEntry {
+  id: string;
+  eventType: string;
+  riskScore: number | null;
+  mfaTriggered: boolean;
+  ipAddress: string | null;
+  userAgent: string | null;
+  fingerprint: string | null;
+  geoLat: string | null;
+  geoLng: string | null;
+  features: Record<string, number> | null;
+  userEmail: string | null;
+  createdAt: string;
+}
+
+export interface AuditLogPage {
+  entries: AuditLogEntry[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export function fetchAuditLogs(
+  params: { eventType?: string; fromDate?: string; toDate?: string; page?: number; limit?: number } = {}
+) {
+  const query = new URLSearchParams();
+  if (params.eventType) query.set("eventType", params.eventType);
+  if (params.fromDate) query.set("fromDate", params.fromDate);
+  if (params.toDate) query.set("toDate", params.toDate);
+  if (params.page) query.set("page", String(params.page));
+  if (params.limit) query.set("limit", String(params.limit));
+  const qs = query.toString();
+  return apiFetch<AuditLogPage>(`/dashboard/audit-logs${qs ? `?${qs}` : ""}`);
+}
