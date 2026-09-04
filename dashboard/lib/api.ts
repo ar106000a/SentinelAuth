@@ -144,3 +144,13 @@ export function updateTenantSettings(partial: {
     body: JSON.stringify(partial),
   });
 }
+export interface RotateKeysResult {
+  publicKey: string;
+  secretKey: string;
+}
+
+export function rotateApiKeys() {
+  return apiFetch<RotateKeysResult>("/dashboard/keys/rotate", {
+    method: "POST",
+  });
+}
