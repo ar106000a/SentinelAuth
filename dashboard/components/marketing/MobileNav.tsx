@@ -14,6 +14,7 @@ const NAV_LINKS = [
 
 export function MobileNav() {
   const [open, setOpen] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
 
   // Escape closes it, same expectation as the Dialog primitive.
   useEffect(() => {
@@ -24,6 +25,28 @@ export function MobileNav() {
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000"}/dashboard/me`,
+          {
+            credentials: "include",
+            cache: "no-store",
+          }
+        );
+        const body = await res.json();
+        if (mounted && body?.success) setAuthenticated(true);
+      } catch (e) {
+        if (mounted) setAuthenticated(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <div className="md:hidden">
@@ -53,13 +76,13 @@ export function MobileNav() {
           </nav>
           <div className="mt-3 flex flex-col gap-2 border-t border-[var(--color-border)] pt-3">
             <Link
-              href="/login"
+              href={authenticated ? "/app" : "/login"}
               onClick={() => setOpen(false)}
               className={
                 buttonVariants({ variant: "outline", size: "md" }) + " w-full"
               }
             >
-              Sign in
+              {authenticated ? "Dashboard" : "Sign in"}
             </Link>
             <Link
               href="/register"
