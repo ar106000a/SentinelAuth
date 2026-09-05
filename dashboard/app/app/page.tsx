@@ -1,5 +1,5 @@
 import { Building2, ShieldCheck, ShieldAlert } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
+import { OverviewAnalytics } from "@/components/app/OverviewAnalytics";
 import { RiskBadge } from "@/components/ui/Badge";
 import { ChartEmptyState } from "@/components/charts/ChartStates";
 import { MetricCard } from "@/components/app/MetricCard";
@@ -33,17 +33,7 @@ export default async function OverviewPage() {
         />
       </div>
 
-      <Card signal>
-        <CardHeader>
-          <CardTitle>Login activity</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <ChartEmptyState
-            title="No activity yet"
-            description="Connect more logins to see risk trends over time."
-          />
-        </CardContent>
-      </Card>
+      <OverviewAnalytics />
     </div>
   );
 }

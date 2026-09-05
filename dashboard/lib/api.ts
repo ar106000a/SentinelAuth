@@ -221,7 +221,13 @@ export interface AuditLogPage {
 }
 
 export function fetchAuditLogs(
-  params: { eventType?: string; fromDate?: string; toDate?: string; page?: number; limit?: number } = {}
+  params: {
+    eventType?: string;
+    fromDate?: string;
+    toDate?: string;
+    page?: number;
+    limit?: number;
+  } = {}
 ) {
   const query = new URLSearchParams();
   if (params.eventType) query.set("eventType", params.eventType);
@@ -231,4 +237,78 @@ export function fetchAuditLogs(
   if (params.limit) query.set("limit", String(params.limit));
   const qs = query.toString();
   return apiFetch<AuditLogPage>(`/dashboard/audit-logs${qs ? `?${qs}` : ""}`);
+}
+
+export interface LoginVolumeBucket {
+  date: string;
+  count: number;
+}
+export interface LoginVolumeResponse {
+  buckets: LoginVolumeBucket[];
+}
+
+export interface MfaRateResponse {
+  totalLogins: number;
+  mfaTriggeredCount: number;
+  rate: number;
+}
+
+export interface RiskDistributionBucket {
+  min: number;
+  max: number;
+  count: number;
+}
+export interface RiskDistributionResponse {
+  buckets: RiskDistributionBucket[];
+}
+
+/**
+ * PROPOSED ENDPOINTS — agreed with the API owner but NOT YET IMPLEMENTED
+ * server-side (Week D Day 1's explicitly flagged backend gap). Calling
+ * these today will 404 until the api package ships them; the frontend is
+ * written against this agreed contract now so no further wiring is
+ * needed once they exist. Contract, as agreed:
+ * - login-volume counts EVERY login attempt that reaches risk_logs
+ *   (failed-password attempts are logged too), not just fully
+ *   successful logins.
+ * - mfa-rate counts mfaTriggered (the risk engine's decision to
+ *   challenge), not successful MFA completion — a distinct, harder
+ *   metric that would need its own endpoint if ever wanted.
+ * - risk-distribution buckets the [0,1] score range in fixed 0.2-wide
+ *   bins: [0–0.2, 0.2–0.4, 0.4–0.6, 0.6–0.8, 0.8–1.0].
+ */
+export function fetchLoginVolume(
+  params: { fromDate?: string; toDate?: string; granularity?: "day" } = {}
+) {
+  const query = new URLSearchParams();
+  if (params.fromDate) query.set("fromDate", params.fromDate);
+  if (params.toDate) query.set("toDate", params.toDate);
+  query.set("granularity", params.granularity ?? "day");
+  return apiFetch<LoginVolumeResponse>(
+    `/dashboard/analytics/login-volume?${query.toString()}`
+  );
+}
+
+export function fetchMfaRate(
+  params: { fromDate?: string; toDate?: string } = {}
+) {
+  const query = new URLSearchParams();
+  if (params.fromDate) query.set("fromDate", params.fromDate);
+  if (params.toDate) query.set("toDate", params.toDate);
+  const qs = query.toString();
+  return apiFetch<MfaRateResponse>(
+    `/dashboard/analytics/mfa-rate${qs ? `?${qs}` : ""}`
+  );
+}
+
+export function fetchRiskDistribution(
+  params: { fromDate?: string; toDate?: string } = {}
+) {
+  const query = new URLSearchParams();
+  if (params.fromDate) query.set("fromDate", params.fromDate);
+  if (params.toDate) query.set("toDate", params.toDate);
+  const qs = query.toString();
+  return apiFetch<RiskDistributionResponse>(
+    `/dashboard/analytics/risk-distribution${qs ? `?${qs}` : ""}`
+  );
 }
