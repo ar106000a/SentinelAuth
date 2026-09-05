@@ -90,6 +90,11 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
     }
     const passwordValid = await verifyPassword(user.passwordHash, password);
     if (!passwordValid) {
+      await logFailedLogin(tenantId, user.id, {
+        ipAddress: ipAddress ?? null,
+        userAgent: userAgent ?? null,
+        mfaTriggered: false,
+      });
       throw new AuthenticationError("Invalid email or password.");
     }
 
@@ -434,17 +439,26 @@ export async function refreshAccessToken(
   return { accessToken: accessToken!, refreshToken: refreshToken };
 }
 
+export interface LogFailedLoginOptions {
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  mfaTriggered?: boolean;
+}
+
 export async function logFailedLogin(
   tenantId: string,
-  userId?: string
+  userId?: string,
+  options: LogFailedLoginOptions = {}
 ): Promise<void> {
+  const { ipAddress = null, userAgent = null, mfaTriggered = false } = options;
   await adminDb.insert(schema.riskLogs).values({
     tenantId,
     userId: userId ?? null,
     eventType: "login_failed",
     riskScore: null,
-    mfaTriggered: false,
-    ipAddress: null,
+    mfaTriggered,
+    ipAddress,
+    userAgent,
   });
 }
 function computeHourFrequencyScore(

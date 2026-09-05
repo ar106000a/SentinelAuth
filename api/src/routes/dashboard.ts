@@ -16,6 +16,16 @@ import { getAuditLogs } from "../services/audit-log.service";
 import { auditLogQuerySchema } from "../validators/audit-log.validator";
 import { gdprDeleteUser, listTenantUsers } from "../services/user-management.service";
 import { userListQuerySchema } from "../validators/user-management.validator";
+import {
+  getLoginVolume,
+  getMfaRate,
+  getRiskDistribution,
+} from "../services/analytics.service";
+import {
+  loginVolumeQuerySchema,
+  mfaRateQuerySchema,
+  riskDistributionQuerySchema,
+} from "../validators/analytics.validator";
 
 const dashboard = new Hono();
 
@@ -153,4 +163,46 @@ dashboard.delete("/users/:id", dashboardAuth, async (c) => {
   const result = await gdprDeleteUser(tenantId, userId);
   return successResponse(c, result, 200);
 });
+
+// ─── Analytics ───────────────────────────────────────────────────────────────
+
+dashboard.get("/analytics/login-volume", dashboardAuth, async (c) => {
+  const tenantId = c.get("tenantId");
+  const parsed = loginVolumeQuerySchema.safeParse(c.req.query());
+  if (!parsed.success) {
+    throw new ValidationError(
+      parsed.error.issues.map((i) => i.message).join(", ")
+    );
+  }
+  const { fromDate, toDate, granularity } = parsed.data;
+  const result = await getLoginVolume(tenantId, fromDate, toDate, granularity);
+  return successResponse(c, result, 200);
+});
+
+dashboard.get("/analytics/mfa-rate", dashboardAuth, async (c) => {
+  const tenantId = c.get("tenantId");
+  const parsed = mfaRateQuerySchema.safeParse(c.req.query());
+  if (!parsed.success) {
+    throw new ValidationError(
+      parsed.error.issues.map((i) => i.message).join(", ")
+    );
+  }
+  const { fromDate, toDate } = parsed.data;
+  const result = await getMfaRate(tenantId, fromDate, toDate);
+  return successResponse(c, result, 200);
+});
+
+dashboard.get("/analytics/risk-distribution", dashboardAuth, async (c) => {
+  const tenantId = c.get("tenantId");
+  const parsed = riskDistributionQuerySchema.safeParse(c.req.query());
+  if (!parsed.success) {
+    throw new ValidationError(
+      parsed.error.issues.map((i) => i.message).join(", ")
+    );
+  }
+  const { fromDate, toDate } = parsed.data;
+  const result = await getRiskDistribution(tenantId, fromDate, toDate);
+  return successResponse(c, result, 200);
+});
+
 export default dashboard;
