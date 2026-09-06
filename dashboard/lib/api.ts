@@ -43,12 +43,21 @@ interface ErrorEnvelope {
  * `/dashboard/*`. Always sends credentials so the `dashboard_session`
  * HttpOnly cookie goes along — this only works because the API's CORS
  * config explicitly allows `http://localhost:3001` with credentials.
+ *
+ * `redirectOnAuthError` is opt-in, not automatic, because AUTHENTICATION_ERROR
+ * means two different things depending on the caller: for an authenticated
+ * shell call (fetchTenantUsers, updateTenantSettings, etc.) it means the
+ * session has expired and the only useful move is sending the browser to
+ * /login. For dashboardLogin itself, the exact same code means "wrong
+ * password" — auto-redirecting there would bounce someone back to the
+ * page they're already on instead of showing them the inline error.
  */
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  config: { redirectOnAuthError?: boolean } = {}
 ): Promise<T> {
-  console.log("apiFetch hitting:", `${API_URL}${path}`);
+  // console.log("apiFetch hitting:", `${API_URL}${path}`);
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     credentials: "include",
@@ -61,6 +70,13 @@ export async function apiFetch<T>(
   const body = (await res.json()) as SuccessEnvelope<T> | ErrorEnvelope;
 
   if (!body.success) {
+    if (
+      config.redirectOnAuthError &&
+      body.error.code === "AUTHENTICATION_ERROR" &&
+      typeof window !== "undefined"
+    ) {
+      window.location.href = "/login";
+    }
     throw new ApiError(body.error.message, body.error.code, res.status);
   }
 
