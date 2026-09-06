@@ -80,7 +80,7 @@ export function AuditLogTable() {
   }, [page]);
 
   const filterInputClass =
-    "h-10 rounded-[var(--radius-sm)] border border-[var(--color-border-strong)] bg-[var(--color-surface-raised)] px-3 text-sm text-[var(--color-text-primary)] outline-none focus-visible:border-[var(--color-focus)]";
+    "h-10 rounded-[var(--radius-sm)] border border-[var(--color-border-strong)] bg-[var(--color-surface-raised)] px-3 text-sm text-[var(--color-text-primary)] outline-none transition-colors focus-visible:border-[var(--color-focus)] focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-0";
 
   return (
     <div className="space-y-4">

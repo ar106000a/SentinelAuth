@@ -24,16 +24,20 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           aria-invalid={!!error}
           aria-describedby={error ? `${inputId}-error` : undefined}
           className={cn(
-            "h-10 w-full rounded-[var(--radius-sm)] border bg-[var(--color-surface-raised)] px-3 text-sm text-[var(--color-text-primary)] outline-none transition-colors",
+            "h-10 w-full rounded-[var(--radius-sm)] border bg-[var(--color-surface-raised)] px-3 text-sm text-[var(--color-text-primary)] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-0",
             error
-              ? "border-[var(--color-danger)] focus-visible:border-[var(--color-danger)]"
-              : "border-[var(--color-border-strong)] focus-visible:border-[var(--color-focus)]",
+              ? "border-[var(--color-danger)] focus-visible:border-[var(--color-danger)] focus-visible:ring-[var(--color-danger)]"
+              : "border-[var(--color-border-strong)] focus-visible:border-[var(--color-focus)] focus-visible:ring-[var(--color-focus)]",
             className
           )}
           {...props}
         />
         {error && (
-          <p id={`${inputId}-error`} role="alert" className="text-caption text-[var(--color-danger)]">
+          <p
+            id={`${inputId}-error`}
+            role="alert"
+            className="text-caption text-[var(--color-danger)]"
+          >
             {error}
           </p>
         )}

@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { useGSAP } from "@gsap/react";
 import { LogIn, Activity, CheckCircle2, ShieldAlert } from "lucide-react";
-import { gsap, ScrollTrigger } from "@/lib/gsap";
+import { gsap,  ScrollTrigger } from "@/lib/gsap";
 import { RISK_GRADIENT_HEX } from "@/lib/tokens";
 
 // Geometry — laid out by hand once, referenced by both the JSX and the

@@ -13,7 +13,7 @@ import {
   MapPin,
   ScrollText,
 } from "lucide-react";
-import { gsap } from "@/lib/gsap";
+import { gsap, prefersReducedMotion } from "@/lib/gsap";
 import { Card } from "@/components/ui/Card";
 
 // Grouped the way SRS §2.2 defines the product's three pillars — this
@@ -96,6 +96,7 @@ export function FeatureGrid() {
 
   useGSAP(
     () => {
+      if (prefersReducedMotion()) return;
       gsap.from(".feature-card", {
         opacity: 0,
         y: 24,

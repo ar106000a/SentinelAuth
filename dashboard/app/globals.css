@@ -275,3 +275,14 @@ body {
   box-shadow: 0 0 0 1px var(--color-border-strong);
   cursor: pointer;
 }
+.risk-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 1px var(--color-border-strong),
+    0 0 0 4px var(--color-focus);
+}
+
+.risk-slider:focus-visible::-moz-range-thumb {
+  box-shadow:
+    0 0 0 1px var(--color-border-strong),
+    0 0 0 4px var(--color-focus);
+}

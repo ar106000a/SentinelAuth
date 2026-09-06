@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { useGSAP } from "@gsap/react";
-import { gsap } from "@/lib/gsap";
+import { gsap, prefersReducedMotion } from "@/lib/gsap";
 import { Card } from "@/components/ui/Card";
 
 // Sourced from SRS §3.5 (Non-Functional Requirements) — these are the
@@ -27,6 +27,7 @@ export function SecuritySection() {
 
   useGSAP(
     () => {
+      if (prefersReducedMotion()) return;
       gsap.from(".security-stat", {
         opacity: 0,
         y: 16,

@@ -1,8 +1,10 @@
 import { Card } from "@/components/ui/Card";
 import { RegisterForm } from "@/components/auth/RegisterForm";
 import Link from "next/link";
+import { redirectIfAuthenticated } from "@/lib/dashboard-session";
 
-export default function RegisterPage() {
+export default async function RegisterPage() {
+  await redirectIfAuthenticated();
   return (
     <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-[var(--color-base)] px-6 py-12">
       <Card className="w-full max-w-sm p-8 space-y-6">

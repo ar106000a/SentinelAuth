@@ -22,7 +22,7 @@ export function OtpInput({ value, onChange, disabled }: OtpInputProps) {
         onChange={(e) =>
           onChange(e.target.value.replace(/\D/g, "").slice(0, 6))
         }
-        className="text-data h-12 w-full rounded-[var(--radius-sm)] border border-[var(--color-border-strong)] bg-[var(--color-surface-raised)] px-3 text-center text-2xl tracking-[0.5em] text-[var(--color-text-primary)] outline-none focus-visible:border-[var(--color-focus)] disabled:opacity-50"
+        className="text-data h-12 w-full rounded-[var(--radius-sm)] border border-[var(--color-border-strong)] bg-[var(--color-surface-raised)] px-3 text-center text-2xl tracking-[0.5em] text-[var(--color-text-primary)] outline-none transition-colors focus-visible:border-[var(--color-focus)] focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-0 disabled:opacity-50"
       />
     </div>
   );

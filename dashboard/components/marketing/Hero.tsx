@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { useGSAP } from "@gsap/react";
-import { gsap } from "@/lib/gsap";
+import { gsap, prefersReducedMotion } from "@/lib/gsap";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/Button";
 import { RiskGauge } from "@/components/marketing/RiskGauge";
@@ -12,6 +12,7 @@ export function Hero() {
 
   useGSAP(
     () => {
+      if (prefersReducedMotion()) return;
       const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
       tl.from(".hero-eyebrow", { opacity: 0, y: 12, duration: 0.5 })
         .from(".hero-headline", { opacity: 0, y: 20, duration: 0.6 }, "-=0.3")

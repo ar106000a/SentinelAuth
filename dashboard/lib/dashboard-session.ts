@@ -61,20 +61,45 @@ export const requireDashboardSession = cache(async (): Promise<DashboardMe> => {
  * Inverse of requireDashboardSession, for /login: if there's already a
  * valid session, there's no reason to show the login form again.
  */
+
 export async function redirectIfAuthenticated(): Promise<void> {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("dashboard_session")?.value;
+
   if (!sessionToken) return;
 
-  const res = await fetch(`${API_URL}/dashboard/me`, {
-    headers: { Cookie: `dashboard_session=${sessionToken}` },
-    cache: "no-store",
-  });
-  const body = (await res.json()) as
-    | SuccessEnvelope<DashboardMe>
-    | ErrorEnvelope;
+  let shouldRedirect = false;
 
-  if (body.success) {
+  try {
+    const res = await fetch(`${API_URL}/dashboard/me`, {
+      headers: { Cookie: `dashboard_session=${sessionToken}` },
+      cache: "no-store",
+    });
+
+    // Edge Case 1: The API is up but returns a 502 Bad Gateway (HTML) instead of JSON.
+    // Checking res.ok prevents `res.json()` from crashing with a SyntaxError.
+    if (res.ok) {
+      const body = (await res.json()) as
+        | SuccessEnvelope<DashboardMe>
+        | ErrorEnvelope;
+
+      if (body.success) {
+        shouldRedirect = true;
+      }
+    } else {
+      console.warn(`Auth check returned non-OK status: ${res.status}`);
+    }
+  } catch (error) {
+    // Edge Case 2: The API is completely unreachable (ECONNREFUSED, DNS failures).
+    console.error("Failed to reach dashboard API for auth check:", error);
+
+    // We intentionally do nothing here. If the auth service is down,
+    // it's safer to let them stay on the login page than to crash.
+  }
+
+  // Edge Case 3: Next.js `redirect()` throws an error to halt execution.
+  // We MUST do this outside the try...catch, otherwise the catch block swallows it!
+  if (shouldRedirect) {
     redirect("/app");
   }
 }

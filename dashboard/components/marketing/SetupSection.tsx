@@ -2,7 +2,7 @@
 
 import { useRef, type ReactNode } from "react";
 import { useGSAP } from "@gsap/react";
-import { gsap } from "@/lib/gsap";
+import { gsap, prefersReducedMotion } from "@/lib/gsap";
 import { CodeWindow } from "@/components/marketing/CodeWindow";
 
 type Seg = {
@@ -142,6 +142,7 @@ export function SetupSection() {
 
   useGSAP(
     () => {
+      if (prefersReducedMotion()) return;
       gsap.from(".setup-reveal", {
         opacity: 0,
         y: 20,
