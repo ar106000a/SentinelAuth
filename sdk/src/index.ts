@@ -16,6 +16,18 @@ import { SessionManager } from "./session-manager.js";
 export { SentinelAuthError };
 export type { SentinelAuthConfig };
 
+export { SentinelAuthLoginElement } from "./components/login-form.js";
+export { SentinelAuthOtpElement } from "./components/otp-input.js";
+export { SentinelAuthFlowElement } from "./components/auth-flow.js";
+export { SentinelAuthRegisterElement } from "./components/register-form.js";
+export { SentinelAuthRegisterFlowElement } from "./components/register-flow.js";
+export { SentinelAuthForgotPasswordElement } from "./components/forgot-password-form.js";
+export { SentinelAuthResetPasswordElement } from "./components/reset-password-form.js";
+export { SentinelAuthPasswordResetFlowElement } from "./components/password-reset-flow.js";
+export { SentinelAuthMfaSetupElement } from "./components/mfa-setup.js";
+export { SentinelAuthLogoutElement } from "./components/logout-button.js";
+export { SentinelAuthMfaDisableElement } from "./components/mfa-disable.js";
+
 export class SentinelAuth extends EventTarget {
   private http: HttpClient;
   private sessionManager: SessionManager;
