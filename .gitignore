@@ -6,3 +6,4 @@ dist
 .turbo
 api/.env
 sdk/src/components/index.html
+astra-recommendation.md
