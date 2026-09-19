@@ -39,7 +39,7 @@ export function MobileNav() {
         );
         const body = await res.json();
         if (mounted && body?.success) setAuthenticated(true);
-      } catch (e) {
+      } catch {
         if (mounted) setAuthenticated(false);
       }
     })();

@@ -7,6 +7,22 @@ on:
     branches: [main]
 
 jobs:
+  lint:
+    name: Linting full repo
+    runs-on: ubuntu-latest
+
+    steps:
+        - name: Checkout 
+          uses: actions/checkout@v4
+        - name: Installing pnpm
+          uses: pnpm/action-setup@v4
+          with:
+            run-install: false
+        - name: Install dependencies
+          run: pnpm install
+        - name: Lint
+          run: pnpm lint
+      
   ci:
     name: Lint, Typecheck & Test
     runs-on: ubuntu-latest
@@ -87,9 +103,6 @@ jobs:
       - name: Typecheck
         run: pnpm --filter @sentinelauth/api typecheck
 
-      - name: Lint
-        run: pnpm --filter @sentinelauth/api lint
-
       - name: Test
         run: pnpm --filter @sentinelauth/api test
 
@@ -100,7 +113,8 @@ jobs:
         working-directory: ai
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout AI repo
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -120,9 +134,12 @@ jobs:
   sdk-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout sdk repo
+        uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+      - name: Install node js
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm

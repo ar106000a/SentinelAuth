@@ -24,7 +24,7 @@ export async function MarketingHeader() {
       });
       const body = await res.json();
       if (body?.success) authenticated = true;
-    } catch (_) {
+    } catch  {
       authenticated = false;
     }
   }

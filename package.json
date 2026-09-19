@@ -22,6 +22,8 @@
     "@eslint/js": "^10.0.1",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.5.0",
     "prettier": "^3.8.3",
     "turbo": "latest",

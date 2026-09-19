@@ -6,5 +6,5 @@
  * split this into a separate internal/server URL if Docker networking ever
  * puts the API behind a different hostname than the browser sees.
  */
-const raw = process.env.NEXT_PUBLIC_API_URL;
+// const raw = process.env.NEXT_PUBLIC_API_URL;
 export const API_URL = "http://localhost:3000";
