@@ -25,7 +25,7 @@ app.onError((err, c) => {
   }
   console.error("unhandled error:", err);
   return errorResponse(c, "Internal server error", 500, "INTERNAL_ERROR");
-});
+});//We are using errorHandler Middleware but that doesnt make this onError() redundant, because it can catch errors occuring inside the errorHandler's errorResponse class or any error before the code reaches that middleware.
 
 // 2. Observability
 app.use("*", logger());
@@ -72,6 +72,7 @@ app.get("/api/ping", (c) => {
 app.notFound((c) => {
   return errorResponse(c, "Route not found", 404, "NOT_FOUND");
 });
+
 if (process.env.NODE_ENV !== "test") {
   serve({
     fetch: app.fetch,

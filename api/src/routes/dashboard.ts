@@ -26,13 +26,11 @@ import {
   mfaRateQuerySchema,
   riskDistributionQuerySchema,
 } from "../validators/analytics.validator";
+import { loginSchema } from "../validators/dashboard.validator";
 
 const dashboard = new Hono();
 
-const loginSchema = z.object({
-  adminEmail: z.email().toLowerCase().trim(),
-  password: z.string().min(1, "Password required"),
-});
+
 dashboard.post("/login", async (c) => {
   const body = await c.req.json().catch(() => {
     throw new ValidationError("Request body must be valid json");
