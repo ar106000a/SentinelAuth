@@ -45,12 +45,12 @@ export async function loginTenant(
     .limit(1);
 
   if (!tenant) {
-    throw new AuthenticationError("Invalid email or password"); //generic error: no enumeration
+    throw new AuthenticationError("Invalid email or password."); //generic error: no enumeration
   }
 
   if (!tenant.isVerified) {
     throw new ForbiddenError(
-      "Email not verified. Complete verification before logggin in"
+      "Email not verified. Complete verification before logging in."
     );
   }
 
@@ -125,7 +125,7 @@ export async function validateDashboardSession(
     .from(tenants)
     .where(eq(tenants.id, session.tenantId))
     .limit(1);
-  console.log("Tenant from DB:", JSON.stringify(tenant)); // add this for debugging
+  // console.log("Tenant from DB:", JSON.stringify(tenant)); // add this for debugging
 
   if (!tenant) {
     throw new AuthenticationError("Tenant not found");
@@ -139,6 +139,7 @@ export async function validateDashboardSession(
 }
 
 export async function tenantForgotPassword(adminEmail: string): Promise<void> {
+  //Retrieving the tenant from db
   const [tenant] = await adminDb
     .select({ id: tenants.id, isVerified: tenants.isVerified })
     .from(tenants)
@@ -148,6 +149,7 @@ export async function tenantForgotPassword(adminEmail: string): Promise<void> {
   if (!tenant || !tenant.isVerified) {
     return;
   }
+
   await adminDb
     .update(otpTokens)
     .set({ usedAt: new Date() })
@@ -171,7 +173,9 @@ export async function tenantForgotPassword(adminEmail: string): Promise<void> {
   });
 
   await sendOtpEmail(adminEmail, rawOtp, "password_reset");
+  return;
 }
+
 export interface TenantResetPasswordInput {
   adminEmail: string;
   otp: string;
@@ -189,8 +193,16 @@ export async function tenantResetPassword(
     .where(eq(tenants.adminEmail, adminEmail))
     .limit(1);
 
+  await adminDb.insert(riskLogs).values({
+    tenantId: tenant.id,
+    userId: null,
+    eventType: "tenant_password_reset",
+    mfaTriggered: false,
+    ipAddress: ipAddress ?? null, // wire in from route later
+  });
+
   if (!tenant || !tenant.isVerified) {
-    throw new AuthenticationError("Expired or invalid reset code"); //😉
+    throw new AuthenticationError("Invalid or expired reset code"); //😉
   }
 
   const [token] = await adminDb
@@ -242,11 +254,5 @@ export async function tenantResetPassword(
     .delete(tenantSessions)
     .where(eq(tenantSessions.tenantId, tenant.id));
 
-  await adminDb.insert(riskLogs).values({
-    tenantId: tenant.id,
-    userId: null,
-    eventType: "tenant_password_reset",
-    mfaTriggered: false,
-    ipAddress: ipAddress ?? null, // wire in from route later
-  });
+  
 }

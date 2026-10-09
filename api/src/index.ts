@@ -60,7 +60,7 @@ app.route("/api/auth", authRoutes);
 app.route("/dashboard", dashboardRoutes);
 
 //Test Protected Route. ll be replaced later by real routes in upcoming days
-app.get("/api/ping", (c) => {
+app.get("/ping", (c) => {
   return successResponse(c, {
     message: "Authenticated Successfully",
     tenantId: c.get("tenantId"),

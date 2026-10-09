@@ -1,3 +1,4 @@
+import { ValidationError } from "../utils/error";
 import { pool } from "./index";
 import { PoolClient } from "pg";
 
@@ -10,6 +11,9 @@ export async function withTenant<T>(
   tenantId: string,
   callback: (client: PoolClient) => Promise<T>
 ): Promise<T> {
+  if(!tenantId){
+   throw new ValidationError("Tenant id not present in the withTenant() call.")
+  }
   const client = await pool.connect();
 
   try {

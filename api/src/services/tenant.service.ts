@@ -24,13 +24,11 @@ export interface RegisterTenantInput {
   password: string;
 }
 export interface RegisterTenantOutput {
-  tenantId: string;
-  publicKey: string;
-  secretKey: string;
+  message:string
 }
 export async function registerTenant(
   input: RegisterTenantInput
-): Promise<{ message: string }> {
+): Promise<RegisterTenantOutput> {
   const { name, adminEmail, password } = input;
 
   if (password.length < 12) {
@@ -99,6 +97,8 @@ export async function verifyTenantEmail(
   input: VerifyEmailInput
 ): Promise<VerifyEmailOutput> {
   const { adminEmail, otp } = input;
+  
+  //checking if tenant exists
   const [tenant] = await adminDb
     .select()
     .from(tenants)
@@ -108,10 +108,14 @@ export async function verifyTenantEmail(
   if (!tenant) {
     throw new NotFoundError("Tenant");
   }
+
   if (tenant.isVerified) {
     throw new ValidationError("Email already Verified");
   }
+  //Hashing the recieved otp for a check
   const otpHash = sha256(otp);
+
+  //retrieving the otp token for the hash check
   const [token] = await adminDb
     .select()
     .from(otpTokens)
@@ -154,6 +158,7 @@ export async function verifyTenantEmail(
     })
     .where(eq(tenants.id, tenant.id));
 
+    //public key is meant to be public here because it is used only to confirm that one specific JWT is signed by you.
   return {
     tenantId: tenant.id,
     publicKey,

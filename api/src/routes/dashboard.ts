@@ -76,9 +76,9 @@ dashboard.post("logout", dashboardAuth, async (c) => {
   return successResponse(c, { message: "Logged out successfully" }, 200);
 });
 dashboard.get("/me", dashboardAuth, async (c) => {
-  console.log("tenantSettings from context:", c.get("tenantSettings"));
-  console.log("tenantId from context:", c.get("tenantId"));
-  console.log("tenantName from context:", c.get("tenantName"));
+  // console.log("tenantSettings from context:", c.get("tenantSettings"));
+  // console.log("tenantId from context:", c.get("tenantId"));
+  // console.log("tenantName from context:", c.get("tenantName"));
   return successResponse(
     c,
     {
