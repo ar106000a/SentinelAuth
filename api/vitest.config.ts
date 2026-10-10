@@ -14,5 +14,6 @@ export default defineConfig({
       reporter: ["text", "json"],
     },
     hookTimeout: 30000,
+    exclude:[ "dist/**", "node_modules/**", "**/*.test.js" ],
   },
 });

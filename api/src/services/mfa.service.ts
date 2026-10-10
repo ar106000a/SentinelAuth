@@ -247,11 +247,43 @@ export async function verifyMfaChallenge(
       .where(eq(users.id, token.userId!))
       .limit(1);
 
-    if (!user || !user.mfaSecret) {
-      throw new AuthenticationError("MFA configuration error");
+    if (!user) {
+      throw new AuthenticationError("User not found");
     }
 
-    const isValid = await verifyTotpCode(user.mfaSecret, code);
+    let isValid = false;
+
+    if (user.mfaEnabled && user.mfaSecret) {
+      isValid = await verifyTotpCode(user.mfaSecret, code);
+    } else {
+      // Check email OTP fallback
+      const codeHash = sha256(code);
+      const [fallbackToken] = await tenantDb
+        .select()
+        .from(otpTokens)
+        .where(
+          and(
+            eq(otpTokens.tenantId, tenantId),
+            eq(otpTokens.userId, user.id),
+            eq(otpTokens.type, "mfa_fallback"),
+            eq(otpTokens.tokenHash, codeHash)
+          )
+        )
+        .limit(1);
+
+      if (
+        fallbackToken &&
+        fallbackToken.usedAt === null &&
+        new Date() <= fallbackToken.expiresAt
+      ) {
+        isValid = true;
+        // Mark fallback token as used
+        await tenantDb
+          .update(otpTokens)
+          .set({ usedAt: new Date() })
+          .where(eq(otpTokens.id, fallbackToken.id));
+      }
+    }
     if (!isValid) {
       await schema.adminDb.insert(riskLogs).values({
         tenantId,

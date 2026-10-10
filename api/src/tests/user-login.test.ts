@@ -5,12 +5,23 @@ import { users, otpTokens, riskLogs, deviceFingerprints } from "../db/schema/ind
 import { eq, and, desc } from "drizzle-orm";
 import { seedTenant, cleanupTenants } from "./utils/seed.js";
 import { generateOtp } from "../utils/crypto.js";
-import type { LoginSuccessResponse } from "@sentinelauth/types";
+import type { LoginSuccessResponse, LoginMfaResponse } from "@sentinelauth/types";
 import type { ApiSuccessResponse } from "@sentinelauth/types";
 
 vi.mock("../services/email.service.js", () => ({
   sendOtpEmail: vi.fn().mockResolvedValue(undefined),
 }));
+
+vi.mock("../services/risk.service.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../services/risk.service.js")>();
+  return {
+    ...actual,
+    getRiskScore: vi.fn(async (features, failOpen) => {
+      if (features.user_agent === "high-risk-test-agent") return 0.95;
+      return 0.5; // default failOpen behaviour for tests
+    }),
+  };
+});
 
 const TENANT_EMAIL = "login-test-tenant@sentineltest.com";
 let tenantSecret: string;
@@ -541,5 +552,73 @@ describe("POST /api/auth/login", () => {
       .where(eq(deviceFingerprints.fingerprintHash, uniqueFingerprint));
 
     expect(records).toHaveLength(1);
+  });
+
+  it("triggers MFA with reason risk_threshold when risk score >= riskThreshold", async () => {
+    // Note: Risk threshold is default 0.7. Mocked getRiskScore returns 0.95 for this user agent.
+    const res = await app.fetch(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "User-Agent": "high-risk-test-agent",
+        },
+        body: JSON.stringify({
+          email: "verified-login@example.com",
+          password: "SecurePass!123",
+        }),
+      })
+    );
+
+    const body = (await res.json()) as ApiSuccessResponse<LoginMfaResponse>;
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    
+    // MFA should be required
+    expect(body.data.mfaRequired).toBe(true);
+    expect(body.data.sessionChallenge).toBeTruthy();
+
+    // Verify that the fallback email OTP token was created in DB
+    const [user] = await adminDb
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        and(
+          eq(users.tenantId, tenantId),
+          eq(users.email, "verified-login@example.com")
+        )
+      );
+
+    const fallbackTokens = await adminDb
+      .select()
+      .from(otpTokens)
+      .where(
+        and(
+          eq(otpTokens.userId, user.id),
+          eq(otpTokens.type, "mfa_fallback")
+        )
+      )
+      .orderBy(desc(otpTokens.createdAt))
+      .limit(1);
+      
+    expect(fallbackTokens).toHaveLength(1);
+
+    // Verify that the risk log contains mfa_reason: 'risk_threshold'
+    const [latestLog] = await adminDb
+      .select()
+      .from(riskLogs)
+      .where(
+        and(
+          eq(riskLogs.tenantId, tenantId),
+          eq(riskLogs.userId, user.id),
+          eq(riskLogs.eventType, "mfa_triggered")
+        )
+      )
+      .orderBy(desc(riskLogs.createdAt))
+      .limit(1);
+
+    expect(latestLog).toBeTruthy();
+    expect(latestLog.mfaTriggered).toBe(true);
+    expect((latestLog.features as any).mfa_reason).toBe("risk_threshold");
   });
 });

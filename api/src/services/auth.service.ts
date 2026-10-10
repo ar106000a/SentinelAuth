@@ -20,6 +20,7 @@ import {
 import { env } from "../config/env";
 import { randomBytes } from "crypto";
 import { assembleFeatureVector, getRiskScore } from "./risk.service";
+import { sendOtpEmail } from "./email.service";
 import {
   clearVelocityFlag,
   isVelocityAnomalyFlagged,
@@ -43,6 +44,21 @@ export interface LoginOutput {
   mfaRequired: boolean;
   sessionChallenge?: string;
   userId: string;
+}
+
+type MfaReason = "user_enrolled" | "risk_threshold" | "velocity_forced" | null;
+
+function decideMfa(args: {
+  mfaEnabled: boolean;
+  riskScore: number;
+  riskThreshold: number;
+  velocityForced: boolean;
+}): { required: boolean; reason: MfaReason } {
+  if (args.velocityForced) return { required: true, reason: "velocity_forced" };
+  if (args.riskScore >= args.riskThreshold)
+    return { required: true, reason: "risk_threshold" };
+  if (args.mfaEnabled) return { required: true, reason: "user_enrolled" };
+  return { required: false, reason: null };
 }
 
 export async function loginUser(input: LoginInput): Promise<LoginOutput> {
@@ -197,10 +213,14 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
     const riskScore = await getRiskScore(featureVector, failOpen);
     const riskThreshold = (tenant.settings?.riskThreshold as number) ?? 0.7;
 
-    const requiresMfa =
-      user.mfaEnabled || (user.mfaEnabled && riskScore >= riskThreshold);
+    const mfaDecision = decideMfa({
+      mfaEnabled: user.mfaEnabled ?? false,
+      riskScore: riskScore,
+      riskThreshold: riskThreshold,
+      velocityForced: hasVelocityAnomaly,
+    });
 
-    if (requiresMfa) {
+    if (mfaDecision.required) {
       //Creating session challenge - random token not a jwt
       const sessionChallenge = randomBytes(32).toString("hex");
       const challengeHash = sha256(sessionChallenge);
@@ -214,6 +234,22 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
         expiresAt,
       });
 
+      if (!user.mfaEnabled || !user.mfaSecret) {
+        const rawOtp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpHash = sha256(rawOtp);
+        const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        await tenantDb.insert(schema.otpTokens).values({
+          tenantId,
+          userId: user.id,
+          tokenHash: otpHash,
+          type: "mfa_fallback",
+          expiresAt: otpExpiresAt,
+        });
+
+        await sendOtpEmail(user.email, rawOtp, "mfa_challenge");
+      }
+
       await tenantDb.insert(schema.riskLogs).values({
         tenantId,
         userId: user.id,
@@ -221,7 +257,10 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
         riskScore,
         mfaTriggered: true,
         ipAddress: ipAddress ?? null,
-        features: featureVector as unknown as Record<string, number>,
+        features: {
+          ...featureVector,
+          mfa_reason: mfaDecision.reason,
+        } as unknown as Record<string, number>,
       });
 
       mfaRequired = true;
