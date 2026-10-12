@@ -8,7 +8,11 @@ import { errorResponse, successResponse } from "./utils/response";
 import { AppError } from "./utils/error";
 import { rateLimitMiddleware } from "./middleware/rate-limit";
 import { requestId } from "./middleware/request-id";
-import { DEFAULT_RATE_LIMIT, AUTH_RATE_LIMIT } from "./lib/rate-limiter";
+import {
+  DEFAULT_RATE_LIMIT,
+  AUTH_RATE_LIMIT,
+  MAINT_RATE_LIMIT,
+} from "./lib/rate-limiter";
 import { env } from "./config/env";
 import healthRoutes from "./routes/health";
 import tenantRoutes from "./routes/tenants";
@@ -25,7 +29,7 @@ app.onError((err, c) => {
   }
   console.error("unhandled error:", err);
   return errorResponse(c, "Internal server error", 500, "INTERNAL_ERROR");
-});//We are using errorHandler Middleware but that doesnt make this onError() redundant, because it can catch errors occuring inside the errorHandler's errorResponse class or any error before the code reaches that middleware.
+}); //We are using errorHandler Middleware but that doesnt make this onError() redundant, because it can catch errors occuring inside the errorHandler's errorResponse class or any error before the code reaches that middleware.
 
 // 2. Observability
 app.use("*", logger());
@@ -34,7 +38,7 @@ app.use("*", logger());
 app.use(
   "*",
   cors({
-    origin: ["http://localhost:3001","http://localhost:3003"], // dashboard dev server
+    origin: ["http://localhost:3001", "http://localhost:3003"], // dashboard dev server
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization", "X-User-Token"],
     exposeHeaders: ["X-RateLimit-Limit", "X-RateLimit-Remaining"],
@@ -48,7 +52,10 @@ app.use("*", errorHandler);
 app.use("*", requestId);
 // 4. Rate limiting
 app.use("/api/*", rateLimitMiddleware(DEFAULT_RATE_LIMIT));
+app.use("/tenants/*", rateLimitMiddleware(DEFAULT_RATE_LIMIT));
+app.use("/dashboard/*", rateLimitMiddleware(DEFAULT_RATE_LIMIT));
 app.use("/api/auth/*", rateLimitMiddleware(AUTH_RATE_LIMIT));
+app.use("/health/*", rateLimitMiddleware(MAINT_RATE_LIMIT));
 
 //TenantContext Middleware
 app.use("/api/*", tenantContext);
