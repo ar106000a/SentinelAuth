@@ -1,4 +1,5 @@
 import { adminPool } from "./index";
+import { SecurityViolationError } from "../utils/error";
 
 const REQUIRED_TABLES = [
   "users",
@@ -26,11 +27,14 @@ export async function assertRlsEnabled(): Promise<void> {
 
   const offenders = [
     ...missing.map((name) => `${name}: missing table`),
-    ...broken.map((row) => `${row.relname}: rls=${Boolean(row.relrowsecurity)}, force=${Boolean(row.relforcerowsecurity)}`),
+    ...broken.map(
+      (row) =>
+        `${row.relname}: rls=${Boolean(row.relrowsecurity)}, force=${Boolean(row.relforcerowsecurity)}`
+    ),
   ];
 
   if (offenders.length > 0) {
-    throw new Error(
+    throw new SecurityViolationError(
       `FATAL: RLS is not enforced on: ${offenders.join(", ")}`
     );
   }

@@ -83,12 +83,17 @@ app.notFound((c) => {
 
 if (process.env.NODE_ENV !== "test") {
   void (async () => {
-    await assertRlsEnabled();
-    serve({
-      fetch: app.fetch,
-      port: env.PORT,
-    });
-    console.log(`SentinelAuth API running on http://localhost:${env.PORT}`);
+    try {
+      await assertRlsEnabled();
+      serve({
+        fetch: app.fetch,
+        port: env.PORT,
+      });
+      console.log(`SentinelAuth API running on http://localhost:${env.PORT}`);
+    } catch (error) {
+      console.error("FATAL: startup security validation failed", error);
+      process.exit(1);
+    }
   })();
 }
 

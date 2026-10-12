@@ -41,6 +41,12 @@ export class ConflictError extends AppError {
   }
 }
 
+export class SecurityViolationError extends AppError {
+  constructor(message: string) {
+    super(message, 500, "SECURITY_VIOLATION");
+  }
+}
+
 export class RateLimitError extends AppError {
   constructor(retryAfter: number) {
     super("Too many requests", 429, "RATE_LIMITED");
