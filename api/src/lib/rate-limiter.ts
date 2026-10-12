@@ -23,6 +23,11 @@ export const AUTH_RATE_LIMIT: RateLimitConfig = {
   refillRate: 2,
   windowSeconds: 60,
 };
+export const MAINT_RATE_LIMIT: RateLimitConfig = {
+  maxTokens: 200,
+  refillRate: 15,
+  windowSeconds: 60,
+};
 
 export async function consumeToken(
   key: string,

@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import z from "zod";
 import { ValidationError } from "../utils/error";
 import { loginTenant, logoutTenant } from "../services/tenant-auth.service";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
