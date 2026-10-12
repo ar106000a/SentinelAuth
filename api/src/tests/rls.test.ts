@@ -1,6 +1,13 @@
 import { describe, it, expect, afterAll, beforeAll } from "vitest";
-import {  db, adminDb } from "../db";
-import { tenants, users } from "../db/schema";
+import { db, adminDb } from "../db";
+import {
+  tenants,
+  users,
+  sessions,
+  otpTokens,
+  riskLogs,
+  deviceFingerprints,
+} from "../db/schema";
 import { withTenant } from "../db/with-tenant";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { eq, sql } from "drizzle-orm";
@@ -93,9 +100,11 @@ describe("RLS tenant isolation", () => {
     expect(result).toHaveLength(0);
   });
 
-  it("queries without tenant context fail safely", async () => {
-    // Direct query without setting app.current_tenant
-    // current_setting throws when variable not set
-    await expect(db.select().from(users)).rejects.toThrow();
+  it("queries without tenant context return zero rows under app_user", async () => {
+    const tables = [users, sessions, otpTokens, riskLogs, deviceFingerprints];
+
+    for (const table of tables) {
+      await expect(db.select().from(table)).resolves.toHaveLength(0);
+    }
   });
 });

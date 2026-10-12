@@ -19,6 +19,7 @@ import tenantRoutes from "./routes/tenants";
 import dashboardRoutes from "./routes/dashboard";
 import { tenantContext } from "./middleware/tenant-context";
 import authRoutes from "./routes/auth";
+import { assertRlsEnabled } from "./db/assert-rls";
 
 const app = new Hono();
 
@@ -81,11 +82,14 @@ app.notFound((c) => {
 });
 
 if (process.env.NODE_ENV !== "test") {
-  serve({
-    fetch: app.fetch,
-    port: env.PORT,
-  });
-  console.log(`SentinelAuth API running on http://localhost:${env.PORT}`);
+  void (async () => {
+    await assertRlsEnabled();
+    serve({
+      fetch: app.fetch,
+      port: env.PORT,
+    });
+    console.log(`SentinelAuth API running on http://localhost:${env.PORT}`);
+  })();
 }
 
 export default app;
