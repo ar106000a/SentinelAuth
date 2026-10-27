@@ -1,6 +1,7 @@
 import { pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
 import { tenants } from "./tenants";
 import { users } from "./users";
+import { integer } from "drizzle-orm/pg-core";
 
 export const otpTokens = pgTable("otp_tokens", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -12,6 +13,7 @@ export const otpTokens = pgTable("otp_tokens", {
   }),
   tokenHash: text("token_hash").notNull(),
   type: text("type").notNull(),
+  attempts: integer("attempts").notNull().default(0),
   expiresAt: timestamp("expires_at").notNull(),
   usedAt: timestamp("used_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

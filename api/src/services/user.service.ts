@@ -9,7 +9,7 @@ import { isPasswordPwned } from "./hibp.service";
 import * as schema from "../db/schema/index";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { withTenant } from "../db/with-tenant";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { generateOtp, hashPassword, sha256 } from "../utils/crypto";
 import { sendOtpEmail } from "./email.service";
 import { adminDb } from "../db";
@@ -107,25 +107,40 @@ export async function verifyUserEmail(
         and(
           eq(schema.otpTokens.tenantId, user.tenantId),
           eq(schema.otpTokens.userId, user.id),
-          eq(schema.otpTokens.type, "email_verification")
+          eq(schema.otpTokens.type, "email_verification"),
+          isNull(schema.otpTokens.usedAt),
+          sql`expires_at>NOW()`
         )
       )
+      .orderBy(sql`created_at DESC`)
       .limit(1);
 
     if (!token) {
       throw new AuthenticationError("Invalid or expired verification code.");
     }
-    //check expiry
-    if (new Date() > token.expiresAt) {
-      throw new AuthenticationError("Otp token is expired");
-    }
-
-    //check if already used
-    if (token.usedAt !== null) {
-      throw new AuthenticationError("Verification code has already been used.");
-    }
+    const MAX_ATTEMPTS = 5;
     const otpHash = sha256(otp);
+
+    // 3. The Failure Path
     if (token.tokenHash !== otpHash) {
+      const newAttempts = token.attempts + 1;
+      const shouldRevoke = newAttempts >= MAX_ATTEMPTS;
+
+      // Use adminDb so it survives the transaction rollback!
+      await adminDb
+        .update(schema.otpTokens)
+        .set({
+          attempts: newAttempts,
+          ...(shouldRevoke ? { usedAt: new Date() } : {}),
+        })
+        .where(eq(schema.otpTokens.id, token.id));
+
+      if (shouldRevoke) {
+        throw new ValidationError(
+          "Submitted wrong code too many times. Request a new one."
+        );
+      }
+
       throw new AuthenticationError("Invalid verification code.");
     }
 

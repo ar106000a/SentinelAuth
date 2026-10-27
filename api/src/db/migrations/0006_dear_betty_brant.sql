@@ -1,0 +1,1 @@
+ALTER TABLE "otp_tokens" ADD COLUMN "attempts" integer DEFAULT 0 NOT NULL;

@@ -227,6 +227,109 @@ describe("POST /api/auth/verify-email", () => {
     expect(body.data.message).toContain("log in");
   });
 
+  it("locks out the token after 5 failed attempts", async () => {
+    // Register a fresh user and replace the emailed code with a known test code.
+    await app.fetch(
+      new Request("http://localhost/api/auth/register", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          email: "lockout-test@example.com",
+          password: "SecurePass!123",
+        }),
+      })
+    );
+
+    const [user] = await adminDb
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        and(
+          eq(users.tenantId, tenantId),
+          eq(users.email, "lockout-test@example.com")
+        )
+      );
+    const { rawOtp, otpHash } = generateOtp();
+
+    await adminDb
+      .update(otpTokens)
+      .set({ tokenHash: otpHash })
+      .where(
+        and(
+          eq(otpTokens.tenantId, tenantId),
+          eq(otpTokens.userId, user.id),
+          eq(otpTokens.type, "email_verification")
+        )
+      );
+
+    // The first four incorrect codes fail normally; the fifth locks the token.
+    for (let i = 0; i < 4; i++) {
+      const res = await app.fetch(
+        new Request("http://localhost/api/auth/verify-email", {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            email: "lockout-test@example.com",
+            otp: "000000", // Wrong code
+          }),
+        })
+      );
+
+      expect(res.status).toBe(401);
+    }
+
+    const lockoutResponse = await app.fetch(
+      new Request("http://localhost/api/auth/verify-email", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          email: "lockout-test@example.com",
+          otp: "000000",
+        }),
+      })
+    );
+    expect(lockoutResponse.status).toBe(400);
+    const lockoutBody = (await lockoutResponse.json()) as {
+      error: { message: string };
+    };
+    expect(lockoutBody.error.message).toContain("too many times");
+
+    const [lockedToken] = await adminDb
+      .select({
+        attempts: otpTokens.attempts,
+        usedAt: otpTokens.usedAt,
+      })
+      .from(otpTokens)
+      .where(
+        and(
+          eq(otpTokens.tenantId, tenantId),
+          eq(otpTokens.userId, user.id),
+          eq(otpTokens.type, "email_verification")
+        )
+      );
+    expect(lockedToken.attempts).toBe(5);
+    expect(lockedToken.usedAt).not.toBeNull();
+
+    // Even the correct code must not verify an account after its token is locked.
+    const correctCodeResponse = await app.fetch(
+      new Request("http://localhost/api/auth/verify-email", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          email: "lockout-test@example.com",
+          otp: rawOtp,
+        }),
+      })
+    );
+    expect(correctCodeResponse.status).toBe(401);
+
+    const [userAfterLockout] = await adminDb
+      .select({ isVerified: users.isVerified })
+      .from(users)
+      .where(eq(users.id, user.id));
+    expect(userAfterLockout.isVerified).toBe(false);
+  });
+
   it("rejects invalid OTP with 401", async () => {
     await app.fetch(
       new Request("http://localhost/api/auth/register", {
