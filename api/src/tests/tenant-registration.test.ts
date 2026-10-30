@@ -14,11 +14,17 @@ vi.mock("../services/email.service.js", () => ({
   sendOtpEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("../services/hibp.service.js", () => ({
+  isPasswordPwned: vi.fn().mockResolvedValue(false),
+}));
+
 const TEST_EMAILS = [
   "register-test-1@sentineltest.com",
   "register-test-duplicate@sentineltest.com",
   "register-verify@sentineltest.com",
   "register-invalid-otp@sentineltest.com",
+  "register-unique-hash-1@sentineltest.com",
+  "register-unique-hash-2@sentineltest.com",
 ];
 
 afterAll(async () => {
@@ -61,13 +67,15 @@ describe("POST /tenants/register", () => {
       password: "SuperSecure!Password123",
     };
 
-    await app.fetch(
+    const firstResponse = await app.fetch(
       new Request("http://localhost/tenants/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       })
     );
+
+    expect(firstResponse.status).toBe(201);
 
     const res = await app.fetch(
       new Request("http://localhost/tenants/register", {
@@ -78,6 +86,35 @@ describe("POST /tenants/register", () => {
     );
 
     expect(res.status).toBe(409);
+  });
+
+  it("assigns unique secret key hashes to pending tenants", async () => {
+    const responses = await Promise.all(
+      TEST_EMAILS.slice(4).map((adminEmail) =>
+        app.fetch(
+          new Request("http://localhost/tenants/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: "Pending Tenant",
+              adminEmail,
+              password: "SuperSecure!Password123",
+            }),
+          })
+        )
+      )
+    );
+
+    expect(responses.map((response) => response.status)).toEqual([201, 201]);
+
+    const pendingTenants = await adminDb
+      .select({ secretKeyHash: tenants.secretKeyHash })
+      .from(tenants)
+      .where(inArray(tenants.adminEmail, TEST_EMAILS.slice(4)));
+
+    expect(pendingTenants).toHaveLength(2);
+    expect(new Set(pendingTenants.map(({ secretKeyHash }) => secretKeyHash)).size)
+      .toBe(2);
   });
 
   it("rejects short password with 400", async () => {

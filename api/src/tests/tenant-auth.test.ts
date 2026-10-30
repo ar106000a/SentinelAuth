@@ -1,9 +1,17 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import app from "../index.js";
 // import { adminDb } from "../db/index.js";
 // import { tenants } from "../db/schema/index.js";
 // import { inArray } from "drizzle-orm";
 import { seedTenant, cleanupTenants } from "./utils/seed.js";
+
+vi.mock("../services/hibp.service.js", () => ({
+  isPasswordPwned: vi.fn().mockResolvedValue(false),
+}));
+
+vi.mock("../services/email.service.js", () => ({
+  sendOtpEmail: vi.fn().mockResolvedValue(undefined),
+}));
 
 const TEST_EMAILS = [
   "auth-middleware-verified@sentineltest.com",

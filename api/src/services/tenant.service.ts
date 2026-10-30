@@ -51,6 +51,7 @@ export async function registerTenant(
   }
 
   const passwordHash = await hashPassword(password);
+  const { secretKeyHash } = generateSecretKey();
 
   const [tenant] = await adminDb
     .insert(tenants)
@@ -59,7 +60,7 @@ export async function registerTenant(
       adminEmail,
       passwordHash,
       publicKey: "dummy public key",
-      secretKeyHash: "dummy secret key hash",
+      secretKeyHash,
       isVerified: false,
       settings: { riskThreshold: 0.7, failOpen: true },
     })
