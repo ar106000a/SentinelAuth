@@ -300,7 +300,7 @@ export async function verifyMfaChallenge(
       .set({ usedAt: new Date() })
       .where(eq(otpTokens.id, token.id));
 
-    const currentLocation = lookupIp(ipAddress ?? "unknown");
+    const currentLocation = lookupIp(ipAddress ?? null);
 
     const currentProfile =
       (user.loginHourProfile as number[] | null) ?? new Array(24).fill(0);

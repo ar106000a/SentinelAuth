@@ -46,6 +46,7 @@ import {
 } from "../lib/credential-stuffing";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { env } from "../config/env";
+import { clientIp } from "../lib/client-ip";
 
 const auth = new Hono();
 auth.post("/register", async (c) => {
@@ -93,8 +94,7 @@ auth.post("/verify-email", async (c) => {
 
 auth.post("/login", credentialStuffingGuard, async (c) => {
   const tenantId = c.get("tenantId");
-  const ip =
-    c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "unknown";
+  const ip = clientIp(c);
   const userAgent = c.req.header("user-agent") ?? "unknown";
   const body = await c.req.json().catch(() => {
     throw new ValidationError("Request body must be a valid json.");
@@ -115,7 +115,9 @@ auth.post("/login", credentialStuffingGuard, async (c) => {
       userAgent,
       fingerprint: parsed.data.fingerprint ?? null,
     });
-    await recordSuccessfulLogin(ip);
+    if (ip !== null) {
+      await recordSuccessfulLogin(ip);
+    }
     if (refreshToken) {
       setCookie(c, "sentinel_refresh", refreshToken, {
         httpOnly: true,
@@ -134,7 +136,9 @@ auth.post("/login", credentialStuffingGuard, async (c) => {
       error instanceof AuthenticationError ||
       error instanceof ForbiddenError
     ) {
-      await recordFailedAttempt(ip, parsed.data.email);
+      if (ip !== null) {
+        await recordFailedAttempt(ip, parsed.data.email);
+      }
       await logFailedLogin(tenantId);
     }
     throw error;
@@ -190,8 +194,7 @@ auth.post("/refresh", async (c) => {
 
 auth.post("/forgot-password", async (c) => {
   const tenantId = c.get("tenantId");
-  const ip =
-    c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "unknown";
+  const ip = clientIp(c);
 
   const body = await c.req.json().catch(() => {
     throw new ValidationError("Request body must be valid JSON");
@@ -204,7 +207,7 @@ auth.post("/forgot-password", async (c) => {
     );
   }
 
-  await userForgotPassword(tenantId, parsed.data.email, ip);
+  await userForgotPassword(tenantId, parsed.data.email, ip ?? undefined);
 
   return successResponse(
     c,
@@ -217,8 +220,7 @@ auth.post("/forgot-password", async (c) => {
 
 auth.post("/reset-password", async (c) => {
   const tenantId = c.get("tenantId");
-  const ip =
-    c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "unknown";
+  const ip = clientIp(c);
 
   const body = await c.req.json().catch(() => {
     throw new ValidationError("Request body must be valid JSON");
@@ -236,7 +238,7 @@ auth.post("/reset-password", async (c) => {
     email: parsed.data.email,
     otp: parsed.data.otp,
     newPassword: parsed.data.newPassword,
-    ipAddress: ip,
+    ipAddress: ip ?? undefined,
   });
 
   return successResponse(
@@ -324,8 +326,7 @@ auth.post("/mfa/disable", userAuth, async (c) => {
 // Note: NOT behind userAuth — user isn't authenticated yet at this point
 auth.post("/mfa/verify", async (c) => {
   const tenantId = c.get("tenantId");
-  const ip =
-    c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "unknown";
+  const ip = clientIp(c);
   const body = await c.req.json().catch(() => {
     throw new ValidationError("Request body must be valid JSON");
   });
@@ -341,7 +342,7 @@ auth.post("/mfa/verify", async (c) => {
     tenantId,
     sessionChallenge: parsed.data.sessionChallenge,
     code: parsed.data.code,
-    ipAddress: ip,
+    ipAddress: ip ?? undefined,
     fingerprint: parsed.data.fingerprint ?? null,
   });
 

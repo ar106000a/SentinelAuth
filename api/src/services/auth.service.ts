@@ -34,9 +34,9 @@ export interface LoginInput {
   tenantId: string;
   email: string;
   password: string;
-  ipAddress?: string;
+  ipAddress?: string | null;
   fingerprint?: string | null;
-  userAgent?: string;
+  userAgent?: string | null;
 }
 export interface LoginOutput {
   accessToken?: string;
@@ -117,7 +117,7 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
     // ── Resolve location EARLY — before feature vector and before update ──
     // currentLocation = where this login is coming FROM right now
     // user.lastLoginLat/Lng = where they logged in LAST TIME (still old values)
-    const currentLocation = lookupIp(ipAddress ?? "unknown");
+    const currentLocation = lookupIp(ipAddress ?? null);
 
     // Capture old location explicitly — Wednesday's velocity calc needs these
     const previousLat = user.lastLoginLat
@@ -165,7 +165,7 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
     // 6. Record login attempt for velocity anomaly detection
     //    and check if anomaly flag is already set for this user
     const [velocityAnomaly, existingFlag] = await Promise.all([
-      recordLoginAttempt(tenantId, user.id, ipAddress ?? "unknown"),
+      recordLoginAttempt(tenantId, user.id, ipAddress ?? null),
       isVelocityAnomalyFlagged(tenantId, user.id),
     ]);
     const hasVelocityAnomaly = velocityAnomaly || existingFlag;
@@ -194,8 +194,8 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
 
     const loginHour = new Date().getUTCHours();
     const featureVector = assembleFeatureVector({
-      ipAddress: ipAddress ?? "unknown",
-      userAgent: userAgent ?? "unknown",
+      ipAddress: ipAddress ?? "",
+      userAgent: userAgent ?? "",
       fingerprint: fingerprint ?? null,
       loginHour,
       hourFrequencyScore: computeHourFrequencyScore(

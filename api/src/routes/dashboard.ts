@@ -26,6 +26,7 @@ import {
   riskDistributionQuerySchema,
 } from "../validators/analytics.validator";
 import { loginSchema } from "../validators/dashboard.validator";
+import { clientIp } from "../lib/client-ip";
 
 const dashboard = new Hono();
 
@@ -112,9 +113,9 @@ dashboard.put("/settings", dashboardAuth, async (c) => {
 
 dashboard.post("/keys/rotate", dashboardAuth, async (c) => {
   const tenantId = c.get("tenantId");
-  const ip = c.header("x-forwarded-for") ?? c.header("x-real-ip") ?? "unknown";
+  const ip = clientIp(c);
 
-  const result = await RotateTenantKeys(tenantId, ip);
+  const result = await RotateTenantKeys(tenantId, ip ?? undefined);
   return successResponse(c, result, 200);
 });
 dashboard.get("/audit-logs", dashboardAuth, async (c) => {

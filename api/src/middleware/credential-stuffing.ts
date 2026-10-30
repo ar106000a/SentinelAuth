@@ -2,6 +2,7 @@ import { Context, Next } from "hono";
 import { isIpBlocked, getBlockTimeRemaining } from "../lib/credential-stuffing.js";
 import { RateLimitError } from "../utils/error";
 import { env } from "../config/env.js";
+import { clientIp } from "../lib/client-ip.js";
 
 export async function credentialStuffingGuard(c: Context, next: Next) {
   if (env.NODE_ENV === "test") {
@@ -9,13 +10,10 @@ export async function credentialStuffingGuard(c: Context, next: Next) {
     return;
   }
 
-  const ip =
-    c.req.header("x-forwarded-for") ??
-    c.req.header("x-real-ip") ??
-    "unknown";
+  const ip = clientIp(c);
 
-  // Unknown IP — can't block, let through
-  if (ip === "unknown") {
+  // Unknown IP — cannot block, let through
+  if (ip === null) {
     await next();
     return;
   }

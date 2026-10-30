@@ -269,7 +269,7 @@ describe("POST /api/auth/login", () => {
     expect(user.lastLoginLng).toBeNull();
   });
 
-  it("falls back to 'unknown' when no IP header present", async () => {
+  it("stores null for lastLoginIp when no IP header present", async () => {
     const res = await app.fetch(
       new Request("http://localhost/api/auth/login", {
         method: "POST",
@@ -288,7 +288,7 @@ describe("POST /api/auth/login", () => {
       .from(users)
       .where(eq(users.email, "verified-login@example.com"));
 
-    expect(user.lastLoginIp).toBe("unknown");
+    expect(user.lastLoginIp).toBeNull();
   });
   it("stores risk score in login_success log entry", async () => {
     await app.fetch(
@@ -402,7 +402,7 @@ describe("POST /api/auth/login", () => {
         method: "POST",
         headers: {
           ...authHeaders(),
-          // No x-forwarded-for — falls back to "unknown"
+          // No x-forwarded-for — IP is null
         },
         body: JSON.stringify({
           email: "verified-login@example.com",
@@ -426,7 +426,7 @@ describe("POST /api/auth/login", () => {
         )
       );
 
-    // "unknown" IP doesn't resolve — null is correct
+    // null IP doesn't resolve — null coordinates are correct
     expect(user.lastLoginLat).toBeNull();
     expect(user.lastLoginLng).toBeNull();
   });

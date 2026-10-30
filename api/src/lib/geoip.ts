@@ -6,7 +6,7 @@ export interface GeoLocation {
   country: string | null;
 }
 
-export function lookupIp(ip: string): GeoLocation | null {
+export function lookupIp(ip?: string | null): GeoLocation | null {
   // Private/local IPs and "unknown" placeholder won't resolve — expected
   if (!ip || ip === "unknown") {
     return null;

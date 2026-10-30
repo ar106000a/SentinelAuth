@@ -13,6 +13,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { generateOtp, hashPassword, sha256 } from "../utils/crypto";
 import { sendOtpEmail } from "./email.service";
 import { adminDb } from "../db";
+import { limit, otpLayer, isRateLimitDisabled } from "../lib/rate-limiter";
 
 export interface RegisterUserInput {
   tenantId: string;
@@ -170,6 +171,33 @@ export async function userForgotPassword(
   email: string,
   ipAddress?: string
 ): Promise<void> {
+  // Normalize email before any limit check so the key is canonical.
+  const normalizedEmail = email.trim().toLowerCase();
+
+  // ── Layer 1: OTP generation rate limit ──────────────────────────────────
+  // Scope = tenantId (server-verified, not client-supplied).
+  // Must run BEFORE DB lookup so timing is identical whether the user exists.
+  if (!isRateLimitDisabled()) {
+    const otpLimitResult = await limit([
+      otpLayer("otp-gen-min:password-reset", tenantId, normalizedEmail, 1, 1 / 60),
+      otpLayer("otp-gen-hour:password-reset", tenantId, normalizedEmail, 5, 5 / 3600),
+      otpLayer("otp-gen-day:password-reset", tenantId, normalizedEmail, 10, 10 / 86400),
+    ]);
+
+    if (!otpLimitResult.allowed) {
+      // Log throttle event, return same generic success — no enumeration.
+      console.warn(
+        JSON.stringify({
+          signal: "otp_generation_throttled",
+          scope: tenantId,
+          eventType: "password_reset",
+          // Do NOT log the email — it is PII
+        })
+      );
+      return; // identical response as the success path
+    }
+  }
+
   await withTenant(tenantId, async (client: PoolClient) => {
     const tenantDb = drizzle(client, { schema });
 
@@ -178,7 +206,7 @@ export async function userForgotPassword(
       .select({ id: schema.users.id, isVerified: schema.users.isVerified })
       .from(schema.users)
       .where(
-        and(eq(schema.users.tenantId, tenantId), eq(schema.users.email, email))
+        and(eq(schema.users.tenantId, tenantId), eq(schema.users.email, normalizedEmail))
       )
       .limit(1);
 
@@ -221,7 +249,7 @@ export async function userForgotPassword(
     });
 
     //send the email
-    await sendOtpEmail(email, rawOtp, "password_reset");
+    await sendOtpEmail(normalizedEmail, rawOtp, "password_reset");
   });
 }
 

@@ -3,15 +3,17 @@ import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { Context, Next } from "hono";
 import { errorHandler } from "./middleware/error-handler";
 import { errorResponse, successResponse } from "./utils/response";
 import { AppError } from "./utils/error";
-import { rateLimitMiddleware } from "./middleware/rate-limit";
+import { preAuthRateLimit, tenantRateLimit } from "./middleware/rate-limit";
 import { requestId } from "./middleware/request-id";
 import {
   DEFAULT_RATE_LIMIT,
   AUTH_RATE_LIMIT,
   MAINT_RATE_LIMIT,
+  RateLimitConfig,
 } from "./lib/rate-limiter";
 import { env } from "./config/env";
 import healthRoutes from "./routes/health";
@@ -42,7 +44,7 @@ app.use(
     origin: ["http://localhost:3001", "http://localhost:3003"], // dashboard dev server
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization", "X-User-Token"],
-    exposeHeaders: ["X-RateLimit-Limit", "X-RateLimit-Remaining"],
+    exposeHeaders: ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
     credentials: true,
   })
 );
@@ -51,17 +53,44 @@ app.use(
 app.use("*", errorHandler);
 
 app.use("*", requestId);
-// 4. Rate limiting
-app.use("/api/*", rateLimitMiddleware(DEFAULT_RATE_LIMIT));
-app.use("/tenants/*", rateLimitMiddleware(DEFAULT_RATE_LIMIT));
-app.use("/dashboard/*", rateLimitMiddleware(DEFAULT_RATE_LIMIT));
-app.use("/api/auth/*", rateLimitMiddleware(AUTH_RATE_LIMIT));
-app.use("/health/*", rateLimitMiddleware(MAINT_RATE_LIMIT));
 
-//TenantContext Middleware
+// ─── Layer 3: IP rate-limiting (pre-auth) ─────────────────────────────────────
+//
+// One registration per route family with NO overlapping patterns.
+// For /api/*, we pick AUTH_RATE_LIMIT for auth sub-paths and DEFAULT otherwise
+// inside a single middleware so that a request is only charged once.
+
+// Helper: returns the right config for the current request path.
+function apiRateLimitConfig(c: Context): RateLimitConfig {
+  return c.req.path.startsWith("/api/auth/") ? AUTH_RATE_LIMIT : DEFAULT_RATE_LIMIT;
+}
+
+// Single /api/* IP limiter — path-aware, never double-charges
+const apiPreAuthRateLimit = async (c: Context, next: Next) => {
+  const config = apiRateLimitConfig(c);
+  return preAuthRateLimit(config)(c, next);
+};
+
+// Single /api/* tenant limiter — same config selection
+const apiTenantRateLimit = async (c: Context, next: Next) => {
+  const config = apiRateLimitConfig(c);
+  return tenantRateLimit(config)(c, next);
+};
+
+app.use("/api/*", apiPreAuthRateLimit);
+app.use("/tenants/*", preAuthRateLimit(DEFAULT_RATE_LIMIT));
+app.use("/dashboard/*", preAuthRateLimit(DEFAULT_RATE_LIMIT));
+app.use("/health/*", preAuthRateLimit(MAINT_RATE_LIMIT));
+
+// ─── Tenant authentication ────────────────────────────────────────────────────
+// tenantContext verifies the Bearer API key and populates c.get("tenantId").
+// It only applies to /api/* — /tenants/* and /dashboard/* use their own auth.
 app.use("/api/*", tenantContext);
 
-// 5. Routes
+// ─── Layer 2: Tenant rate-limiting (post-auth) ────────────────────────────────
+app.use("/api/*", apiTenantRateLimit);
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
 app.route("/health", healthRoutes);
 app.route("/tenants", tenantRoutes);
 app.route("/api/auth", authRoutes);

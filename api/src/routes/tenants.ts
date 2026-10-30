@@ -12,6 +12,7 @@ import {
   tenantForgotPassword,
   tenantResetPassword,
 } from "../services/tenant-auth.service";
+import { clientIp } from "../lib/client-ip";
 
 const tenants = new Hono();
 
@@ -77,8 +78,7 @@ tenants.post("/reset-password", async (c) => {
   });
 
   //attaining ip address
-  const ip =
-    c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "unknown";
+  const ip = clientIp(c);
 
   const parsed = tenantResetPasswordSchema.safeParse(body);
   if (!parsed.success) {
@@ -87,7 +87,7 @@ tenants.post("/reset-password", async (c) => {
     );
   }
 
-  await tenantResetPassword(parsed.data, ip);
+  await tenantResetPassword(parsed.data, ip ?? undefined);
 
   return successResponse(
     c,

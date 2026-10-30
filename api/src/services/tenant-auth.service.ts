@@ -15,6 +15,7 @@ import {
 import { randomBytes } from "crypto";
 import { sendOtpEmail } from "./email.service";
 import { isPasswordPwned } from "./hibp.service";
+import { limit, otpLayer, isRateLimitDisabled } from "../lib/rate-limiter";
 
 export interface TenantLoginInput {
   adminEmail: string;
@@ -139,11 +140,40 @@ export async function validateDashboardSession(
 }
 
 export async function tenantForgotPassword(adminEmail: string): Promise<void> {
+  // Normalize email before any limit check so the key is canonical.
+  const normalizedEmail = adminEmail.trim().toLowerCase();
+
+  // ── Layer 1: OTP generation rate limit ──────────────────────────────────
+  // Scope is the fixed label "tenant-admin" because /tenants/* has no tenantId.
+  // Apply limit BEFORE DB lookup — consistent timing regardless of whether
+  // the email exists, preventing account enumeration via response time.
+  if (!isRateLimitDisabled()) {
+    const scope = "tenant-admin";
+    const otpLimitResult = await limit([
+      otpLayer("otp-gen-min:password-reset", scope, normalizedEmail, 1, 1 / 60),
+      otpLayer("otp-gen-hour:password-reset", scope, normalizedEmail, 5, 5 / 3600),
+      otpLayer("otp-gen-day:password-reset", scope, normalizedEmail, 10, 10 / 86400),
+    ]);
+
+    if (!otpLimitResult.allowed) {
+      // Log throttle event, then return the same generic success — no enumeration.
+      console.warn(
+        JSON.stringify({
+          signal: "otp_generation_throttled",
+          scope,
+          eventType: "password_reset",
+          // Do NOT log the email — it is PII
+        })
+      );
+      return; // identical response as the success path
+    }
+  }
+
   //Retrieving the tenant from db
   const [tenant] = await adminDb
     .select({ id: tenants.id, isVerified: tenants.isVerified })
     .from(tenants)
-    .where(eq(tenants.adminEmail, adminEmail))
+    .where(eq(tenants.adminEmail, normalizedEmail))
     .limit(1);
 
   if (!tenant || !tenant.isVerified) {
@@ -172,7 +202,7 @@ export async function tenantForgotPassword(adminEmail: string): Promise<void> {
     expiresAt,
   });
 
-  await sendOtpEmail(adminEmail, rawOtp, "password_reset");
+  await sendOtpEmail(normalizedEmail, rawOtp, "password_reset");
   return;
 }
 

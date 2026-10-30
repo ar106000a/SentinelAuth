@@ -16,8 +16,11 @@ function mfaForcedKey(tenantId: string, userId: string): string {
 export async function recordLoginAttempt(
   tenantId: string,
   userId: string,
-  ip: string
+  ip?: string | null
 ): Promise<boolean> {
+  if (!ip) {
+    return false;
+  }
   const key = velocityKey(tenantId, userId);
   const now = Date.now();
   const windowStart = now - VELOCITY_WINDOW_SECONDS * 1000;
