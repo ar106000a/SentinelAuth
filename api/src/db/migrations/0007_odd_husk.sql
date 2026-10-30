@@ -1,0 +1,1 @@
+ALTER TABLE "tenants" ADD CONSTRAINT "tenants_secret_key_hash_unique" UNIQUE("secret_key_hash");

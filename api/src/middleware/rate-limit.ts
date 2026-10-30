@@ -31,7 +31,7 @@ export function rateLimitMiddleware(config: RateLimitConfig = AUTH_RATE_LIMIT) {
       c.header("X-RateLimit-Limit", config.maxTokens.toString());
       c.header(
         "X-RateLimit-Remaining",
-        ipKnown ? result.remaining.toString() : "smth"
+        result.remaining.toString() 
       );
       c.header("X-RateLimit-Reset", result.resetInSeconds.toString());
 

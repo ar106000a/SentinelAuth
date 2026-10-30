@@ -7,7 +7,7 @@ export const tenants = pgTable("tenants", {
   adminEmail: text("admin_email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   publicKey: text("public_key").notNull(),
-  secretKeyHash: text("secret_key_hash").notNull(),
+  secretKeyHash: text("secret_key_hash").notNull().unique(),
   settings: jsonb("settings")
     .$type<{
       riskThreshold: number;
