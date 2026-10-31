@@ -57,12 +57,12 @@ jobs:
       DATABASE_APP_URL: postgresql://app_user:app_user_password@localhost:5432/sentinelauth
       REDIS_URL: redis://localhost:6379
       NODE_ENV: test
-      GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
-      GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
-      GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
+      GMAIL_CLIENT_ID: ${{secrets.GMAIL_CLIENT_ID}}
+      GMAIL_CLIENT_SECRET: ${{secrets.GMAIL_CLIENT_SECRET}}
+      GMAIL_REFRESH_TOKEN: ${{secrets.GMAIL_REFRESH_TOKEN}}
       GMAIL_SENDER: ar1062000a@gmail.com
-      JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
-      COOKIE_SECRET: ${{ secrets.COOKIE_SECRET}}
+      JWT_REFRESH_SECRET: ${{secrets.JWT_REFRESH_SECRET}}
+      COOKIE_SECRET: ${{secrets.COOKIE_SECRET}}
 
     steps:
       - name: Checkout code
@@ -104,7 +104,7 @@ jobs:
         run: pnpm --filter @sentinelauth/api typecheck
 
       - name: Test
-        run: pnpm --filter @sentinelauth/api test
+        run: pnpm --filter @sentinelauth/api test -- --pool=threads --maxWorkers=1
 
   ai-test:
     runs-on: ubuntu-latest
