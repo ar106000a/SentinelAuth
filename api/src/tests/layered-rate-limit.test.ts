@@ -169,17 +169,21 @@ describe("Layered Rate Limiting Integration Tests", () => {
     let rateLimitedCount = 0;
     let allowedCount = 0;
 
-    for (let i = 1; i <= 45; i++) {
-      const res = await app.fetch(
-        new Request("http://localhost/api/auth/forgot-password", {
-          method: "POST",
-          headers: authHeaders({
-            "x-forwarded-for": sharedIp,
-          }),
-          body: JSON.stringify({ email: `attacker-victim-${i}@example.com` }),
-        })
-      );
+    const responses = await Promise.all(
+      Array.from({ length: 45 }, (_, i) =>
+        app.fetch(
+          new Request("http://localhost/api/auth/forgot-password", {
+            method: "POST",
+            headers: authHeaders({
+              "x-forwarded-for": sharedIp,
+            }),
+            body: JSON.stringify({ email: `attacker-victim-${i + 1}@example.com` }),
+          })
+        )
+      )
+    );
 
+    for (const res of responses) {
       if (res.status === 200) {
         allowedCount++;
       } else if (res.status === 429) {

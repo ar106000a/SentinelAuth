@@ -1,4 +1,12 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
+import {
+  chargeAttempt,
+  revokeToken,
+  consumeToken,
+  timingSafeCompare,
+  revokeUnusedTokens,
+  MAX_ATTEMPTS,
+} from "../lib/otp-attempts";
 import { adminDb } from "../db";
 import { otpTokens, riskLogs, tenants, tenantSessions } from "../db/schema";
 import {
@@ -223,16 +231,8 @@ export async function tenantResetPassword(
     .where(eq(tenants.adminEmail, adminEmail))
     .limit(1);
 
-  await adminDb.insert(riskLogs).values({
-    tenantId: tenant.id,
-    userId: null,
-    eventType: "tenant_password_reset",
-    mfaTriggered: false,
-    ipAddress: ipAddress ?? null, // wire in from route later
-  });
-
   if (!tenant || !tenant.isVerified) {
-    throw new AuthenticationError("Invalid or expired reset code"); //😉
+    throw new AuthenticationError("Invalid or expired reset code");
   }
 
   const [token] = await adminDb
@@ -241,22 +241,43 @@ export async function tenantResetPassword(
     .where(
       and(
         eq(otpTokens.tenantId, tenant.id),
+        isNull(otpTokens.userId),
         eq(otpTokens.type, "password_reset"),
-        sql`used_at IS NULL`,
+        isNull(otpTokens.usedAt),
         sql`expires_at > NOW()`
       )
     )
+    .orderBy(sql`created_at DESC`)
     .limit(1);
 
   if (!token) {
     throw new AuthenticationError("Invalid or expired reset code");
   }
 
-  const otpHash = sha256(otp);
-  if (token.tokenHash !== otpHash) {
+  const attempts = await chargeAttempt(token.id);
+  if (attempts === null) {
     throw new AuthenticationError("Invalid or expired reset code");
   }
-  // 4. HIBP check on new password
+
+  const otpHash = sha256(otp);
+  const isValid = timingSafeCompare(otpHash, token.tokenHash);
+
+  if (!isValid) {
+    if (attempts >= MAX_ATTEMPTS) {
+      await revokeToken(token.id);
+      throw new ValidationError(
+        "Submitted wrong code too many times. Request a new one."
+      );
+    }
+    throw new AuthenticationError("Invalid or expired reset code");
+  }
+
+  const consumed = await consumeToken(token.id);
+  if (!consumed) {
+    throw new AuthenticationError("Invalid or expired reset code");
+  }
+
+  // HIBP check on new password
   const isPwned = await isPasswordPwned(newPassword);
   if (isPwned) {
     throw new ValidationError(
@@ -264,25 +285,33 @@ export async function tenantResetPassword(
     );
   }
 
-  // 5. Hash new password
+  // Hash new password
   const passwordHash = await hashPassword(newPassword);
 
-  // 6. Mark token used
-  await adminDb
-    .update(otpTokens)
-    .set({ usedAt: new Date() })
-    .where(eq(otpTokens.id, token.id));
-
-  // 7. Update password
+  // Update password
   await adminDb
     .update(tenants)
     .set({ passwordHash, updatedAt: new Date() })
     .where(eq(tenants.id, tenant.id));
 
-  // 8. Invalidate all dashboard sessions — password changed
+  // Invalidate all dashboard sessions — password changed
   await adminDb
     .delete(tenantSessions)
     .where(eq(tenantSessions.tenantId, tenant.id));
 
-  
+  // Revoke other unused password_reset tokens for this tenant
+  await revokeUnusedTokens({
+    tenantId: tenant.id,
+    userId: null,
+    type: "password_reset",
+  });
+
+  // Log risk event
+  await adminDb.insert(riskLogs).values({
+    tenantId: tenant.id,
+    userId: null,
+    eventType: "tenant_password_reset",
+    mfaTriggered: false,
+    ipAddress: ipAddress ?? null,
+  });
 }

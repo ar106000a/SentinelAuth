@@ -14,6 +14,14 @@ import { generateOtp, hashPassword, sha256 } from "../utils/crypto";
 import { sendOtpEmail } from "./email.service";
 import { adminDb } from "../db";
 import { limit, otpLayer, isRateLimitDisabled } from "../lib/rate-limiter";
+import {
+  chargeAttempt,
+  revokeToken,
+  consumeToken,
+  timingSafeCompare,
+  revokeUnusedTokens,
+  MAX_ATTEMPTS,
+} from "../lib/otp-attempts";
 
 export interface RegisterUserInput {
   tenantId: string;
@@ -119,24 +127,17 @@ export async function verifyUserEmail(
     if (!token) {
       throw new AuthenticationError("Invalid or expired verification code.");
     }
-    const MAX_ATTEMPTS = 5;
+    const attempts = await chargeAttempt(token.id);
+    if (attempts === null) {
+      throw new AuthenticationError("Invalid or expired verification code.");
+    }
+
     const otpHash = sha256(otp);
+    const isValid = timingSafeCompare(otpHash, token.tokenHash);
 
-    // 3. The Failure Path
-    if (token.tokenHash !== otpHash) {
-      const newAttempts = token.attempts + 1;
-      const shouldRevoke = newAttempts >= MAX_ATTEMPTS;
-
-      // Use adminDb so it survives the transaction rollback!
-      await adminDb
-        .update(schema.otpTokens)
-        .set({
-          attempts: newAttempts,
-          ...(shouldRevoke ? { usedAt: new Date() } : {}),
-        })
-        .where(eq(schema.otpTokens.id, token.id));
-
-      if (shouldRevoke) {
+    if (!isValid) {
+      if (attempts >= MAX_ATTEMPTS) {
+        await revokeToken(token.id);
         throw new ValidationError(
           "Submitted wrong code too many times. Request a new one."
         );
@@ -145,16 +146,10 @@ export async function verifyUserEmail(
       throw new AuthenticationError("Invalid verification code.");
     }
 
-    //Mark token used and user verified
-    await tenantDb
-      .update(schema.otpTokens)
-      .set({ usedAt: new Date() })
-      .where(
-        and(
-          eq(schema.otpTokens.tenantId, tenantId),
-          eq(schema.otpTokens.id, token.id)
-        )
-      );
+    const consumed = await consumeToken(token.id);
+    if (!consumed) {
+      throw new AuthenticationError("Invalid or expired verification code.");
+    }
 
     await tenantDb
       .update(schema.users)
@@ -301,31 +296,41 @@ export async function userResetPassword(
           eq(schema.otpTokens.userId, user.id),
           eq(schema.otpTokens.tenantId, tenantId),
           eq(schema.otpTokens.type, "password_reset"),
-          sql`used_at IS NULL`,
+          isNull(schema.otpTokens.usedAt),
           sql`expires_at > NOW()`
         )
       )
+      .orderBy(sql`created_at DESC`)
       .limit(1);
 
     if (!token) {
       throw new AuthenticationError("Invalid or expired reset code");
     }
 
-    //Verifying otp
+    const attempts = await chargeAttempt(token.id);
+    if (attempts === null) {
+      throw new AuthenticationError("Invalid or expired reset code");
+    }
+
+    // Verifying otp
     const hashedOtp = sha256(otp);
-    if (token.tokenHash !== hashedOtp) {
+    const isValid = timingSafeCompare(hashedOtp, token.tokenHash);
+    if (!isValid) {
+      if (attempts >= MAX_ATTEMPTS) {
+        await revokeToken(token.id);
+        throw new ValidationError(
+          "Submitted wrong code too many times. Request a new one."
+        );
+      }
+      throw new AuthenticationError("Invalid or expired reset code");
+    }
+
+    const consumed = await consumeToken(token.id);
+    if (!consumed) {
       throw new AuthenticationError("Invalid or expired reset code");
     }
 
     const hashedPassword = await hashPassword(newPassword);
-
-    //marking token as used
-    await tenantDb
-      .update(schema.otpTokens)
-      .set({
-        usedAt: new Date(),
-      })
-      .where(eq(schema.otpTokens.id, token.id));
 
     //updating password
     await tenantDb
@@ -350,6 +355,13 @@ export async function userResetPassword(
           eq(schema.sessions.tenantId, tenantId)
         )
       );
+
+    // Revoke other unused password_reset tokens for this user
+    await revokeUnusedTokens({
+      tenantId,
+      userId: user.id,
+      type: "password_reset",
+    });
 
     //logging event
     await adminDb.insert(schema.riskLogs).values({

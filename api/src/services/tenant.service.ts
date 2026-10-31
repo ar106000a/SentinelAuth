@@ -1,6 +1,13 @@
 import { adminDb } from "../db";
 import { otpTokens, tenants } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
+import {
+  chargeAttempt,
+  revokeToken,
+  consumeToken,
+  timingSafeCompare,
+  MAX_ATTEMPTS,
+} from "../lib/otp-attempts";
 import {
   hashPassword,
   generateRSAKeyPair,
@@ -113,37 +120,48 @@ export async function verifyTenantEmail(
   if (tenant.isVerified) {
     throw new ValidationError("Email already Verified");
   }
-  //Hashing the recieved otp for a check
-  const otpHash = sha256(otp);
-
-  //retrieving the otp token for the hash check
+  // retrieving active otp token (scoped to tenant, userId IS NULL, type = email_verification, active, newest first)
   const [token] = await adminDb
     .select()
     .from(otpTokens)
-    .where(eq(otpTokens.tenantId, tenant.id))
+    .where(
+      and(
+        eq(otpTokens.tenantId, tenant.id),
+        isNull(otpTokens.userId),
+        eq(otpTokens.type, "email_verification"),
+        isNull(otpTokens.usedAt),
+        sql`expires_at > NOW()`
+      )
+    )
+    .orderBy(sql`created_at DESC`)
     .limit(1);
 
   if (!token) {
     throw new AuthenticationError("Invalid or expired verification code");
   }
 
-  const now = new Date();
-  if (token.expiresAt < now) {
-    throw new AuthenticationError("Verification code has expired");
+  const attempts = await chargeAttempt(token.id);
+  if (attempts === null) {
+    throw new AuthenticationError("Invalid or expired verification code");
   }
 
-  if (token.usedAt !== null) {
-    throw new AuthenticationError("Verification code has already been used");
-  }
+  const otpHash = sha256(otp);
+  const isValid = timingSafeCompare(otpHash, token.tokenHash);
 
-  if (token.tokenHash !== otpHash) {
+  if (!isValid) {
+    if (attempts >= MAX_ATTEMPTS) {
+      await revokeToken(token.id);
+      throw new ValidationError(
+        "Submitted wrong code too many times. Request a new one."
+      );
+    }
     throw new AuthenticationError("Invalid verification code");
   }
 
-  await adminDb
-    .update(otpTokens)
-    .set({ usedAt: now })
-    .where(eq(otpTokens.id, token.id));
+  const consumed = await consumeToken(token.id);
+  if (!consumed) {
+    throw new AuthenticationError("Invalid or expired verification code");
+  }
   const { publicKey, privateKey } = generateRSAKeyPair();
   const { rawSecret, secretKeyHash } = generateSecretKey();
 

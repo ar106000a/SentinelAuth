@@ -12,6 +12,10 @@ vi.mock("../services/email.service.js", () => ({
   sendOtpEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("../services/hibp.service.js", () => ({
+  isPasswordPwned: vi.fn().mockResolvedValue(false),
+}));
+
 vi.mock("../services/risk.service.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../services/risk.service.js")>();
   return {

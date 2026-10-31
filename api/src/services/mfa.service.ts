@@ -3,7 +3,14 @@ import { PoolClient } from "pg";
 import { withTenant } from "../db/with-tenant";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { otpTokens, riskLogs, sessions, tenants, users } from "../db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
+import {
+  chargeAttempt,
+  revokeToken,
+  consumeToken,
+  timingSafeCompare,
+  MAX_ATTEMPTS,
+} from "../lib/otp-attempts";
 import { generateSecret, generateURI, verify } from "otplib";
 import QRCode from "qrcode";
 import {
@@ -226,19 +233,21 @@ export async function verifyMfaChallenge(
         and(
           eq(otpTokens.tenantId, tenantId),
           eq(otpTokens.type, "mfa_challenge"),
-          eq(otpTokens.tokenHash, challengeHash)
+          eq(otpTokens.tokenHash, challengeHash),
+          isNull(otpTokens.usedAt),
+          sql`expires_at > NOW()`
         )
       )
+      .orderBy(sql`created_at DESC`)
       .limit(1);
 
     if (!token) {
       throw new AuthenticationError("Invalid or expired session challenge!");
     }
-    if (token.usedAt !== null) {
-      throw new AuthenticationError("Session challenge already used!");
-    }
-    if (new Date() > token.expiresAt) {
-      throw new AuthenticationError("Session challenge has expired!");
+
+    const attempts = await chargeAttempt(token.id);
+    if (attempts === null) {
+      throw new AuthenticationError("Invalid or expired session challenge!");
     }
 
     const [user] = await tenantDb
@@ -252,6 +261,7 @@ export async function verifyMfaChallenge(
     }
 
     let isValid = false;
+    let fallbackTokenId: string | null = null;
 
     if (user.mfaEnabled && user.mfaSecret) {
       isValid = await verifyTotpCode(user.mfaSecret, code);
@@ -266,22 +276,18 @@ export async function verifyMfaChallenge(
             eq(otpTokens.tenantId, tenantId),
             eq(otpTokens.userId, user.id),
             eq(otpTokens.type, "mfa_fallback"),
-            eq(otpTokens.tokenHash, codeHash)
+            isNull(otpTokens.usedAt),
+            sql`expires_at > NOW()`
           )
         )
+        .orderBy(sql`created_at DESC`)
         .limit(1);
 
-      if (
-        fallbackToken &&
-        fallbackToken.usedAt === null &&
-        new Date() <= fallbackToken.expiresAt
-      ) {
-        isValid = true;
-        // Mark fallback token as used
-        await tenantDb
-          .update(otpTokens)
-          .set({ usedAt: new Date() })
-          .where(eq(otpTokens.id, fallbackToken.id));
+      if (fallbackToken) {
+        isValid = timingSafeCompare(codeHash, fallbackToken.tokenHash);
+        if (isValid) {
+          fallbackTokenId = fallbackToken.id;
+        }
       }
     }
     if (!isValid) {
@@ -291,14 +297,24 @@ export async function verifyMfaChallenge(
         eventType: "mfa_failed",
         mfaTriggered: true,
       });
+
+      if (attempts >= MAX_ATTEMPTS) {
+        await revokeToken(token.id);
+        throw new ValidationError(
+          "Submitted wrong code too many times. Request a new one."
+        );
+      }
+
       throw new AuthenticationError("Invalid authentication code.");
     }
 
-    //Marking challenge as used
-    await tenantDb
-      .update(otpTokens)
-      .set({ usedAt: new Date() })
-      .where(eq(otpTokens.id, token.id));
+    const consumed = await consumeToken(token.id);
+    if (!consumed) {
+      throw new AuthenticationError("Invalid or expired session challenge!");
+    }
+    if (fallbackTokenId) {
+      await consumeToken(fallbackTokenId);
+    }
 
     const currentLocation = lookupIp(ipAddress ?? null);
 

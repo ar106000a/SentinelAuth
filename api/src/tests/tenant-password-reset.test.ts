@@ -14,6 +14,10 @@ vi.mock("../services/email.service.js", () => ({
   sendOtpEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("../services/hibp.service.js", () => ({
+  isPasswordPwned: vi.fn().mockResolvedValue(false),
+}));
+
 const TENANT_EMAIL = "pwd-reset-test@sentineltest.com";
 const TENANT_PASSWORD = "SuperSecure!Password123";
 const NEW_PASSWORD = "NewSuperSecure!Password456";
