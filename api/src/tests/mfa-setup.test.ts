@@ -27,6 +27,7 @@ const USER_PASSWORD = "SecurePass!123";
 let tenantSecret: string;
 let tenantId: string;
 let accessToken: string;
+let totpSecret: string; // Unified clean instance reference
 
 function authHeaders() {
   return {
@@ -128,8 +129,6 @@ beforeAll(async () => {
 afterAll(async () => {
   await cleanupTenants([TENANT_EMAIL]);
 });
-
-let totpSecret: string;
 
 describe("POST /api/auth/mfa/setup", () => {
   it("returns secret and QR code", async () => {
@@ -269,28 +268,33 @@ describe("POST /api/auth/mfa/enable", () => {
 });
 
 describe("POST /api/auth/mfa/disable", () => {
-  // Add a dedicated beforeAll hook to ensure MFA is cleanly enabled with a fresh token 
-  // right before your disable test evaluations begin
+  // Ensure we are working with a known enabled state at the start of this block
   beforeAll(async () => {
-    // 1. Trigger a clean setup call
-    const res = await app.fetch(
-      new Request("http://localhost/api/auth/mfa/setup", {
-        method: "POST",
-        headers: userHeaders(),
-      })
-    );
-    const body = (await res.json()) as ApiSuccessResponse<MfaSetupResponse>;
-    totpSecret = body.data.secret;
+    const [user] = await adminDb
+      .select({ mfaEnabled: users.mfaEnabled })
+      .from(users)
+      .where(and(eq(users.tenantId, tenantId), eq(users.email, USER_EMAIL)));
 
-    // 2. Explicitly enable it so the disable assertions start from a deterministic true state
-    const code = await generate({ secret: totpSecret });
-    await app.fetch(
-      new Request("http://localhost/api/auth/mfa/enable", {
-        method: "POST",
-        headers: userHeaders(),
-        body: JSON.stringify({ code }),
-      })
-    );
+    // If it's somehow not enabled from the previous block, turn it on
+    if (!user?.mfaEnabled) {
+      const res = await app.fetch(
+        new Request("http://localhost/api/auth/mfa/setup", {
+          method: "POST",
+          headers: userHeaders(),
+        })
+      );
+      const body = (await res.json()) as ApiSuccessResponse<MfaSetupResponse>;
+      totpSecret = body.data.secret;
+
+      const code = await generate({ secret: totpSecret });
+      await app.fetch(
+        new Request("http://localhost/api/auth/mfa/enable", {
+          method: "POST",
+          headers: userHeaders(),
+          body: JSON.stringify({ code }),
+        })
+      );
+    }
   });
 
   it("rejects wrong password with 401", async () => {
@@ -342,7 +346,6 @@ describe("POST /api/auth/mfa/disable", () => {
   });
 
   it("rejects disable when MFA not enabled", async () => {
-    // This will now properly return a 400 because the previous test successfully disabled it!
     const res = await app.fetch(
       new Request("http://localhost/api/auth/mfa/disable", {
         method: "POST",
@@ -354,4 +357,3 @@ describe("POST /api/auth/mfa/disable", () => {
     expect(res.status).toBe(400);
   });
 });
-
