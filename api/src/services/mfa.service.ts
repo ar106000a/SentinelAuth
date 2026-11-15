@@ -24,10 +24,12 @@ import {
   sha256,
   verifyPassword,
 } from "../utils/crypto";
-import { hashToken, signJwt, signRefreshToken } from "../utils/jwt";
+import { randomUUID } from "crypto";
+import { hashToken, signJwt } from "../utils/jwt";
 import { env } from "../config/env";
 import { lookupIp } from "../lib/geoip";
 import { checkAndRecordDeviceFingerprint } from "./device-fingerprint.service";
+import { issueInitialRefreshToken } from "./refresh-issuance.service";
 export interface MfaSetupOutput {
   secret: string;
   qrCodeDataUri: string;
@@ -330,12 +332,14 @@ export async function verifyMfaChallenge(
       fingerprint ?? null
     );
     //Issuing tokens
+    const sessionId = randomUUID();
     accessToken = signJwt(
       {
         sub: user.id,
         tenantId,
         email: user.email,
         isVerified: user.isVerified,
+        sessionId,
       },
       tenant.privateKeyEncrypted
     );
@@ -347,6 +351,7 @@ export async function verifyMfaChallenge(
     const [session] = await tenantDb
       .insert(sessions)
       .values({
+        id: sessionId,
         tenantId,
         userId: user.id,
         tokenHash,
@@ -355,9 +360,10 @@ export async function verifyMfaChallenge(
       })
       .returning({ id: sessions.id });
 
-    refreshToken = signRefreshToken({
-      sub: user.id,
+    refreshToken = await issueInitialRefreshToken({
+      client,
       tenantId,
+      userId: user.id,
       sessionId: session.id,
     });
 

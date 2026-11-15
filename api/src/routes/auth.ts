@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Context, Hono } from "hono";
 import {
   AuthenticationError,
   ForbiddenError,
@@ -47,6 +47,32 @@ import {
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { env } from "../config/env";
 import { clientIp } from "../lib/client-ip";
+import { z } from "zod";
+import { verifyRefreshToken } from "../utils/jwt";
+
+/**
+ * Cookie attributes helper.
+ * Per P0-6 requirement #48: One helper owns cookie attributes; no Domain attribute.
+ */
+function setRefreshCookie(c: Context, token: string): void {
+  setCookie(c, "sentinel_refresh", token, {
+    httpOnly: true,
+    secure: env.NODE_ENV === "production",
+    sameSite: "Strict",
+    maxAge: 24 * 60 * 60,
+    path: "/",
+  });
+}
+
+function deleteRefreshCookie(c: Context): void {
+  deleteCookie(c, "sentinel_refresh", {
+    httpOnly: true,
+    secure: env.NODE_ENV === "production",
+    sameSite: "Strict",
+    path: "/",
+    maxAge: 0,
+  });
+}
 
 const auth = new Hono();
 auth.post("/register", async (c) => {
@@ -119,18 +145,18 @@ auth.post("/login", credentialStuffingGuard, async (c) => {
     if (ip !== null) {
       await recordSuccessfulLogin(ip);
     }
-    if (refreshToken) {
-      setCookie(c, "sentinel_refresh", refreshToken, {
-        httpOnly: true,
-        secure: env.NODE_ENV === "production",
-        sameSite: "Strict",
-        maxAge: 24 * 60 * 60,
-        path: "/",
-        domain: env.COOKIE_DOMAIN,
-      });
-    }
 
-    return successResponse(c, result, 200);
+    if (env.REQ_BODY_TOKENS) {
+      // Body mode: return refresh token in JSON, no cookie.
+      const responseData = refreshToken ? { ...result, refreshToken } : result;
+      return successResponse(c, responseData, 200);
+    } else {
+      // Cookie mode: set HttpOnly cookie, strip from body.
+      if (refreshToken) {
+        setRefreshCookie(c, refreshToken);
+      }
+      return successResponse(c, result, 200);
+    }
   } catch (error) {
     //log failed attempt before re-throwing
     if (
@@ -146,21 +172,40 @@ auth.post("/login", credentialStuffingGuard, async (c) => {
   }
 });
 
-auth.post("/logout", userAuth, async (c) => {
+auth.post("/logout", async (c) => {
   const tenantId = c.get("tenantId");
+
+  if (env.REQ_BODY_TOKENS) {
+    let body: { refreshToken?: unknown } | null;
+    try {
+      body = (await c.req.json()) as { refreshToken?: unknown };
+    } catch {
+      body = null;
+    }
+
+    if (body && typeof body.refreshToken === "string") {
+      const payload = verifyRefreshToken(body.refreshToken);
+      if (payload.tenantId !== tenantId) {
+        throw new AuthenticationError("Token tenant mismatch");
+      }
+      await logoutUser(tenantId, payload.sub, "", body.refreshToken);
+      return successResponse(c, { message: "Logged out successfully!" }, 200);
+    }
+  }
+
+  // Fallback: validate user with userAuth
+  await userAuth(c, async () => {});
+
   const userId = c.get("userId");
   const token = c.req.header("X-User-Token");
   if (!token) {
     throw new ValidationError("Token absent with request");
   }
-  deleteCookie(c, "sentinel_refresh", {
-    httpOnly: true,
-    secure: env.NODE_ENV === "production",
-    sameSite: "strict",
-    path: "/",
-    domain: env.COOKIE_DOMAIN,
-    maxAge: 34 * 60 * 60,
-  });
+
+  if (!env.REQ_BODY_TOKENS) {
+    deleteRefreshCookie(c);
+  }
+
   await logoutUser(tenantId, userId!, token);
   return successResponse(c, { message: "Logged out successfully!" }, 200);
 });
@@ -168,29 +213,48 @@ auth.post("/logout", userAuth, async (c) => {
 auth.post("/refresh", async (c) => {
   const tenantId = c.get("tenantId");
 
-  //COmmenting this out because this will throw if body is absent and now, we are sending the refreshToken through the cookie and not body so removing this is the sane decision instead of deliberately sedning an empty body everytime...
-  // await c.req.json().catch(() => {
-  //   console.log("--Coming from refresh router----");
-  //   throw new ValidationError("Request body must be a valid json");
-  // });
+  let refreshToken: string | undefined;
 
-  const refreshToken = getCookie(c, "sentinel_refresh");
-
-  if (!refreshToken || typeof refreshToken !== "string") {
-    throw new AuthenticationError("refreshToken is required");
+  if (env.REQ_BODY_TOKENS) {
+    // Body mode: read refresh token from JSON body.
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      throw new AuthenticationError(
+        "MISSING_BODY_TOKEN: Request body must be valid JSON with refreshToken in body-token mode",
+        "MISSING_BODY_TOKEN"
+      );
+    }
+    const parsed = z.object({ refreshToken: z.string() }).safeParse(body);
+    if (!parsed.success) {
+      throw new AuthenticationError(
+        "MISSING_BODY_TOKEN: refreshToken is required in body when REQ_BODY_TOKENS=true",
+        "MISSING_BODY_TOKEN"
+      );
+    }
+    refreshToken = parsed.data.refreshToken;
+  } else {
+    // Cookie mode: read from HttpOnly cookie.
+    const cookie = getCookie(c, "sentinel_refresh");
+    if (!cookie || typeof cookie !== "string") {
+      throw new AuthenticationError("refreshToken is required");
+    }
+    refreshToken = cookie;
   }
+
   const result = await refreshAccessToken(tenantId, refreshToken);
-  if (result.refreshToken) {
-    setCookie(c, "sentinel_refresh", result.refreshToken, {
-      httpOnly: true,
-      sameSite: "strict",
-      maxAge: 24 * 60 * 60,
-      path: "/",
-      secure: env.NODE_ENV === "production",
-      domain: env.COOKIE_DOMAIN,
-    });
+
+  if (env.REQ_BODY_TOKENS) {
+    // Body mode: return both tokens in JSON.
+    return successResponse(c, result, 200);
+  } else {
+    // Cookie mode: rotate the cookie, strip refresh from body.
+    if (result.refreshToken) {
+      setRefreshCookie(c, result.refreshToken);
+    }
+    return successResponse(c, { accessToken: result.accessToken }, 200);
   }
-  return successResponse(c, result, 200);
 });
 
 auth.post("/forgot-password", async (c) => {
@@ -347,15 +411,15 @@ auth.post("/mfa/verify", async (c) => {
     fingerprint: parsed.data.fingerprint ?? null,
   });
 
-  setCookie(c, "sentinel_refresh", refreshToken, {
-    httpOnly: true,
-    maxAge: 24 * 60 * 60,
-    path: "/",
-    secure: env.NODE_ENV === "production",
-    sameSite: "strict",
-    domain: env.COOKIE_DOMAIN,
-  });
-
-  return successResponse(c, result, 200);
+  if (env.REQ_BODY_TOKENS) {
+    // Body mode: return refresh token in JSON response.
+    return successResponse(c, { ...result, refreshToken }, 200);
+  } else {
+    // Cookie mode: set HttpOnly cookie, strip from body.
+    if (refreshToken) {
+      setRefreshCookie(c, refreshToken);
+    }
+    return successResponse(c, result, 200);
+  }
 });
 export default auth;

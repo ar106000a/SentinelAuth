@@ -20,9 +20,15 @@ export interface SentinelAuthProviderProps extends SentinelAuthConfig {
 export function SentinelAuthProvider({
   apiUrl,
   apiKey,
+  tokenTransport,
+  storage,
   children,
 }: SentinelAuthProviderProps) {
-  const sdk = useMemo(() => new SentinelAuth({ apiUrl, apiKey }), []);
+  const sdk = useMemo(
+    () => new SentinelAuth({ apiUrl, apiKey, tokenTransport, storage }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
 
   return (
     <SentinelAuthContext.Provider value={sdk}>

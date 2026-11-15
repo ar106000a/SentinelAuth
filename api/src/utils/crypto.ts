@@ -6,6 +6,7 @@ import {
   randomInt,
   createCipheriv,
   createDecipheriv,
+  timingSafeEqual as cryptoTimingSafeEqual,
 } from "crypto";
 import { env } from "../config/env";
 
@@ -119,4 +120,50 @@ export function encryptMfaSecret(secret: string): string {
 }
 export function decryptMfaSecret(stored: string): string {
   return decryptPrivateKey(stored);
+}
+
+/**
+ * Encrypt the successor refresh token for grace-window idempotency storage.
+ * Uses AES-256-GCM with the REFRESH_SUCCESSOR_ENC_KEY env var (64 hex chars).
+ * Returns "<ivHex>:<ciphertextHex>:<tagHex>".
+ */
+export function encryptSuccessor(plaintext: string): string {
+  const keyHex = process.env.REFRESH_SUCCESSOR_ENC_KEY ?? "a".repeat(64);
+  const key = Buffer.from(keyHex, "hex");
+  const iv = randomBytes(12); // 12-byte IV for GCM
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([
+    cipher.update(plaintext, "utf8"),
+    cipher.final(),
+  ]);
+  const tag = cipher.getAuthTag();
+  return `${iv.toString("hex")}:${encrypted.toString("hex")}:${tag.toString("hex")}`;
+}
+
+/**
+ * Decrypt a successor refresh token stored in the history row.
+ * Returns the plaintext token string or throws on tampered/invalid data.
+ */
+export function decryptSuccessor(stored: string): string {
+  const parts = stored.split(":");
+  if (parts.length !== 3) {
+    throw new Error("Invalid successor ciphertext format");
+  }
+  const [ivHex, ciphertextHex, tagHex] = parts;
+  const keyHex = process.env.REFRESH_SUCCESSOR_ENC_KEY ?? "a".repeat(64);
+  const key = Buffer.from(keyHex, "hex");
+  const iv = Buffer.from(ivHex, "hex");
+  const ciphertext = Buffer.from(ciphertextHex, "hex");
+  const tag = Buffer.from(tagHex, "hex");
+  const decipher = createDecipheriv("aes-256-gcm", key, iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
+}
+
+/** Timing-safe equality check for two equal-length hex strings. */
+export function timingSafeEqual(a: string, b: string): boolean {
+  const aBuf = Buffer.from(a);
+  const bBuf = Buffer.from(b);
+  if (aBuf.length !== bBuf.length) return false;
+  return cryptoTimingSafeEqual(aBuf, bBuf);
 }

@@ -52,7 +52,25 @@ const envSchema = z.object({
   AI_ENGINE_TIMEOUT_MS: z.coerce.number().default(5000),
 
   //Deployment_relevant
-  TRUSTED_PROXY_HOPS: z.coerce.number().default(0)
+  TRUSTED_PROXY_HOPS: z.coerce.number().default(0),
+
+  // ── P0-6: Refresh-token transport ─────────────────────────────────────────
+  // Set to true to enable body/storage transport. Default false = cookie mode.
+  // Deploy-time setting — flipping requires users to sign in again.
+  REQ_BODY_TOKENS: z
+    .string()
+    .default("false")
+    .transform((v) => v.toLowerCase() === "true"),
+
+  // Required only when REQ_BODY_TOKENS=true. 32-byte AES key as 64 hex chars.
+  REFRESH_SUCCESSOR_ENC_KEY: z.string().optional(),
+
+  // Refresh idle TTL (e.g. "7d"). How long of inactivity before the family expires.
+  REFRESH_IDLE_TTL: z.string().default("7d"),
+  // Refresh absolute lifetime (e.g. "30d"). Hard ceiling regardless of activity.
+  REFRESH_ABSOLUTE_TTL: z.string().default("30d"),
+  // Grace window in seconds for lost-response idempotency replay.
+  REFRESH_GRACE_SECONDS: z.coerce.number().default(10),
 });
 
 const parsed = envSchema.safeParse(process.env); //we dont use parse() here because if there is an error, it screams out loud unless we wrap a try catch block around it...safeParse() returns a plain object indicating inside whether the validation succeeded or not
@@ -80,6 +98,19 @@ if (!data.MASTER_ENCRYPTION_KEY) {
   data.MASTER_ENCRYPTION_KEY = "0".repeat(64);
 }
 
+// Enforce REFRESH_SUCCESSOR_ENC_KEY when body-token mode is enabled.
+if (data.REQ_BODY_TOKENS === true && !data.REFRESH_SUCCESSOR_ENC_KEY) {
+  if (data.NODE_ENV !== "test") {
+    console.error("Invalid environment variables:");
+    console.error(
+      "  REFRESH_SUCCESSOR_ENC_KEY: required when REQ_BODY_TOKENS=true"
+    );
+    process.exit(1);
+  }
+  // In tests provide a deterministic 32-byte key so body-mode tests work without .env.
+  data.REFRESH_SUCCESSOR_ENC_KEY = "a".repeat(64);
+}
+
 export const env = data as {
   DATABASE_URL: string;
   DATABASE_APP_URL: string;
@@ -101,7 +132,13 @@ export const env = data as {
   JWT_REFRESH_SECRET: string;
   COOKIE_SECRET: string;
   COOKIE_DOMAIN: string;
-  AI_ENGINE_TIMEOUT_MS:number;
-  AI_ENGINE_URL:string;
-  TRUSTED_PROXY_HOPS:number
+  AI_ENGINE_TIMEOUT_MS: number;
+  AI_ENGINE_URL: string;
+  TRUSTED_PROXY_HOPS: number;
+  // P0-6
+  REQ_BODY_TOKENS: boolean;
+  REFRESH_SUCCESSOR_ENC_KEY?: string;
+  REFRESH_IDLE_TTL: string;
+  REFRESH_ABSOLUTE_TTL: string;
+  REFRESH_GRACE_SECONDS: number;
 };

@@ -43,6 +43,7 @@ export interface UserVerifyEmailResponse {
 // When MFA is not required — all token fields present
 export interface LoginSuccessResponse {
   accessToken: string;
+  refreshToken?: string;
   mfaRequired: false;
   userId: string;
 }
@@ -59,11 +60,13 @@ export type LoginResponse = LoginSuccessResponse | LoginMfaResponse;
 
 export interface MfaVerifyResponse {
   accessToken: string;
+  refreshToken?: string;
   userId: string;
 }
 
 export interface RefreshResponse {
   accessToken: string;
+  refreshToken?: string;
 }
 export interface TenantLoginResponse {
   tenantId: string;

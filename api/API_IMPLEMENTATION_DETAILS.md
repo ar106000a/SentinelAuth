@@ -34,6 +34,7 @@ This document provides a comprehensive, low-level technical specification of the
    - [End-User Authentication Routes (`/api/auth`)](#end-user-authentication-routes)
 9. [Error Handling Architecture (`src/utils/error.ts` & `response.ts`)](#9-error-handling-architecture)
 10. [Data Types & Shared Contracts (`@sentinelauth/types`)](#10-data-types--shared-contracts)
+11. [Refresh Token Transport: Body/Storage Mode (`REQ_BODY_TOKENS`)](#11-refresh-token-transport-bodystorage-mode-req_body_tokens)
 
 ---
 
@@ -722,3 +723,67 @@ export interface AuditLogPage {
   totalPages: number;
 }
 ```
+
+---
+
+## 11. Refresh Token Transport: Body/Storage Mode (`REQ_BODY_TOKENS`)
+
+SentinelAuth provides two orthogonal refresh-token transport mechanisms:
+1. **Cookie Mode (Default, `REQ_BODY_TOKENS=false`)**: Stores refresh tokens in an `HttpOnly`, `SameSite=Strict` cookie (`sentinel_refresh`). Recommended for first-party, same-origin or custom-domain architectures.
+2. **Body/Storage Mode (`REQ_BODY_TOKENS=true`)**: Emits and consumes refresh tokens strictly via JSON request/response payloads. Designed for third-party, cross-origin SPAs where browser third-party cookie restrictions (Safari ITP, Chrome Privacy Sandbox) prevent credentialed cookies.
+
+### 11.1 Configuration (`src/config/env.ts`)
+- `REQ_BODY_TOKENS`: Boolean flag (default `false`). When `true`, enables body-mode routes, rotation history, grace window, and per-tenant CORS.
+- `REFRESH_SUCCESSOR_ENC_KEY`: 64-hex-character AES-256-GCM symmetric key used to encrypt successor refresh tokens stored in `refresh_token_history`.
+- `REFRESH_IDLE_TTL`: Inactivity timeout string (default `"7d"`). Sliding window renewed on each refresh.
+- `REFRESH_ABSOLUTE_TTL`: Maximum session lifetime string (default `"30d"`). Hard ceiling never extended by rotation.
+- `REFRESH_GRACE_SECONDS`: Grace period window in seconds (default `10`).
+
+### 11.2 Database Schema (`src/db/schema/refresh-token-history.ts` & `sessions.ts`)
+- **`refresh_token_history`**:
+  - `id`: UUID primary key.
+  - `tenant_id`: UUID foreign key references `tenants(id)` on delete cascade.
+  - `session_id`: UUID foreign key references `sessions(id)` on delete cascade.
+  - `token_hash`: SHA-256 hex string of the refresh JWT (unique).
+  - `created_at`: Timestamp with time zone.
+  - `consumed_at`: Timestamp with time zone, set when rotated.
+  - `successor_ciphertext`: AES-256-GCM encrypted ciphertext of the newly issued successor token (with IV + auth tag).
+  - RLS enabled with `FORCE ROW LEVEL SECURITY`.
+- **`sessions` table additions**:
+  - `refresh_idle_expires_at`: Sliding idle expiration timestamp.
+  - `refresh_absolute_expires_at`: Absolute session boundary timestamp.
+
+### 11.3 Rotation, Grace Window & Successor Encryption (`src/services/refresh-issuance.service.ts`)
+- **Rotation with Single-Flight Serialisation**: Each refresh call acquires a row lock (`FOR UPDATE`) on the presented token's history row and its session.
+- **Grace Window Replay**: If a client replays an already-consumed refresh token within `REFRESH_GRACE_SECONDS`, the server decrypts and re-emits the existing `successor_ciphertext` idempotently without rotating. This protects against lost responses and network retries.
+- **Replay Outside Grace**: Replaying a consumed token past the grace period indicates token theft. The entire session family is instantly revoked (`sessions.is_revoked = true`).
+- **Expiry Enforcement**:
+  - If `NOW() > refresh_absolute_expires_at`: Family revoked with `401`.
+  - If `NOW() > refresh_idle_expires_at`: Family revoked with `401`.
+  - If session has `NULL` expiries (session created in cookie mode): rejected with `401 TRANSPORT_MISMATCH`.
+
+### 11.4 Route Behaviors in Body Mode
+- **`POST /api/auth/login` & `POST /api/auth/mfa/verify`**:
+  - Return `{ ...result, refreshToken: "<token>" }` in the JSON response.
+  - Sets **no** `Set-Cookie` header.
+- **`POST /api/auth/refresh`**:
+  - Reads `{ refreshToken: "<token>" }` from the JSON body.
+  - Rotates token and returns `{ accessToken: "<newAt>", refreshToken: "<newRt>" }`.
+- **`POST /api/auth/logout`**:
+  - Accepts `{ refreshToken: "<token>" }` in the JSON body.
+  - Revokes the entire session family even if the access token is already expired.
+- **User Authentication (`src/middleware/user-auth.ts`)**:
+  - In body mode, validates session existence and revocation status from JWT claim `sessionId`, without requiring stored access token hash equality. This ensures Tab A's existing access token remains valid when Tab B refreshes.
+
+### 11.5 Per-Tenant CORS & Origin Enforcement (`src/middleware/tenant-origin.ts`)
+- Non-browser clients without an `Origin` header are permitted.
+- Browser requests validate `Origin` against `tenantSettings.allowedOrigins`.
+- Allowed origins receive uncredentialed CORS headers (`Access-Control-Allow-Origin: <origin>`, `Access-Control-Allow-Credentials` omitted).
+- Disallowed origins receive `403 Forbidden` before route handlers execute.
+- OPTIONS preflight on `/api/*` is handled prior to tenant authentication with `204 No Content`.
+
+### 11.6 Maintenance Cleanup (`src/services/refresh-cleanup.service.ts`)
+- Background job running via `adminPool`:
+  - Periodically nulls `successor_ciphertext` for consumed rows whose grace window has passed.
+  - Deletes history rows for revoked sessions or sessions whose absolute expiry exceeded 1 day in the past.
+

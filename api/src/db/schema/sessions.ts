@@ -14,6 +14,11 @@ export const sessions = pgTable("sessions", {
   isRevoked: boolean("is_revoked").notNull().default(false),
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  // Body-mode only: refresh-token family expiry.
+  // NULL means this session was created in cookie mode and is not refreshable
+  // in body mode — the user must sign in again after the flag is turned on.
+  refreshIdleExpiresAt: timestamp("refresh_idle_expires_at"),
+  refreshAbsoluteExpiresAt: timestamp("refresh_absolute_expires_at"),
 });
 
 export type Session = typeof sessions.$inferSelect;

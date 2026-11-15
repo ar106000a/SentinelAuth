@@ -20,8 +20,10 @@ import healthRoutes from "./routes/health";
 import tenantRoutes from "./routes/tenants";
 import dashboardRoutes from "./routes/dashboard";
 import { tenantContext } from "./middleware/tenant-context";
+import { tenantOriginGuard } from "./middleware/tenant-origin";
 import authRoutes from "./routes/auth";
 import { assertRlsEnabled } from "./db/assert-rls";
+import { startCleanupJob } from "./services/refresh-cleanup.service";
 
 const app = new Hono();
 
@@ -38,16 +40,48 @@ app.onError((err, c) => {
 app.use("*", logger());
 // app.use('*',logger());
 // 3. CORS
-app.use(
-  "*",
-  cors({
-    origin: ["http://localhost:3001", "http://localhost:3003"], // dashboard dev server
-    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization", "X-User-Token"],
-    exposeHeaders: ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
-    credentials: true,
-  })
-);
+const cookieCors = cors({
+  origin: ["http://localhost:3001", "http://localhost:3003"], // dashboard dev server
+  allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowHeaders: ["Content-Type", "Authorization", "X-User-Token"],
+  exposeHeaders: ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
+  credentials: true,
+});
+
+const dashboardCors = cors({
+  origin: ["http://localhost:3001", "http://localhost:3003"],
+  allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowHeaders: ["Content-Type", "Authorization", "X-User-Token"],
+  credentials: true,
+});
+
+app.use("*", async (c, next) => {
+  if (env.REQ_BODY_TOKENS) {
+    if (c.req.method === "OPTIONS" && c.req.path.startsWith("/api/")) {
+      const origin = c.req.header("Origin");
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": origin ?? "*",
+          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers":
+            "Content-Type, Authorization, X-User-Token",
+          "Access-Control-Expose-Headers":
+            "X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset",
+          "Access-Control-Max-Age": "86400",
+        },
+      });
+    }
+
+    if (c.req.path.startsWith("/dashboard/") || c.req.path.startsWith("/tenants/")) {
+      return dashboardCors(c, next);
+    }
+
+    return next();
+  }
+
+  return cookieCors(c, next);
+});
 
 // 1. Error handler middleware — catches errors from middleware chain
 app.use("*", errorHandler);
@@ -90,6 +124,7 @@ app.use("/health/*", preAuthRateLimit(MAINT_RATE_LIMIT));
 // tenantContext verifies the Bearer API key and populates c.get("tenantId").
 // It only applies to /api/* — /tenants/* and /dashboard/* use their own auth.
 app.use("/api/*", tenantContext);
+app.use("/api/*", tenantOriginGuard);
 
 // ─── Layer 2: Tenant rate-limiting (post-auth) ────────────────────────────────
 app.use("/api/*", apiTenantRateLimit);
@@ -118,6 +153,9 @@ if (process.env.NODE_ENV !== "test") {
   void (async () => {
     try {
       await assertRlsEnabled();
+      if (env.REQ_BODY_TOKENS) {
+        startCleanupJob();
+      }
       serve({
         fetch: app.fetch,
         port: env.PORT,

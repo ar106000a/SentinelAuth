@@ -34,6 +34,7 @@ This document provides a comprehensive technical reference for `@sentinelauth/sd
    - [`<sentinel-auth-mfa-setup>` (`mfa-setup.ts`)](#sentinel-auth-mfa-setup-mfa-setupts)
    - [`<sentinel-auth-logout-button>` (`logout-button.ts`)](#sentinel-auth-logout-button-logout-buttonts)
    - [`<sentinel-auth-mfa-disable>` (`mfa-disable.ts`)](#sentinel-auth-mfa-disable-mfa-disablets)
+7. [Token Transport: Cookie vs Storage (`tokenTransport`)](#7-token-transport-cookie-vs-storage)
 
 ---
 
@@ -53,9 +54,19 @@ Compiled via `tsup` targeting both CommonJS (`cjs`) and ES Modules (`esm`) with 
 ### Configuration (`SentinelAuthConfig`)
 
 ```typescript
+export type TokenTransport = 'cookie' | 'storage';
+
+export interface StorageAdapter {
+  getItem: (key: string) => Promise<string | null> | string | null;
+  setItem: (key: string, value: string) => Promise<void> | void;
+  removeItem: (key: string) => Promise<void> | void;
+}
+
 export interface SentinelAuthConfig {
   apiUrl: string; // Base URL of SentinelAuth API (e.g., "http://localhost:3000")
   apiKey: string; // Tenant API Secret Key (passed as Bearer token in Authorization header)
+  tokenTransport?: TokenTransport; // 'cookie' (default) or 'storage'
+  storage?: StorageAdapter; // Custom storage adapter (defaults to localStorage in browser)
 }
 ```
 
@@ -292,3 +303,38 @@ All component events set `bubbles: true` and `composed: true`, allowing events t
 - **Events Emitted**:
   - `sentinel-mfa-disable-complete` (`detail: { message: string }`)
   - `sentinel-mfa-disable-error` (`detail: { message: string }`)
+
+---
+
+## 7. Token Transport: Cookie vs Storage (`tokenTransport`)
+
+SentinelAuth SDK supports two distinct token transport modes:
+
+### 7.1 Cookie Transport (`tokenTransport: 'cookie'`, default)
+- Refresh token is stored in an `HttpOnly` cookie managed entirely by the browser.
+- Network requests use `credentials: 'include'`.
+- Access token is kept purely in memory.
+- Safest against XSS (script execution cannot extract the refresh token).
+- Recommended when the frontend and auth backend share a top-level domain or custom domain.
+
+### 7.2 Storage Transport (`tokenTransport: 'storage'`)
+- Designed for third-party SPAs running on different domains from the SentinelAuth API where browser third-party cookie restrictions (Safari ITP, Chrome Privacy Sandbox) block cross-domain cookies.
+- Network requests use `credentials: 'omit'`.
+- Refresh token is persisted via `StorageAdapter` (defaults to browser `localStorage`, with an in-memory fallback for non-browser/SSR environments).
+- Refresh tokens are stripped from all public return values (`sdk.login`, `sdk.verifyMfa`, `sdk.refresh`) to prevent accidental leaks.
+
+#### Key Namespacing
+To avoid cross-tenant collisions on the same origin (e.g. `localhost`), storage keys are deterministically namespaced:
+`sentinel_rt_<sha16>`, where `<sha16>` is the first 16 hexadecimal characters of SHA-256(`apiUrl:apiKey`).
+
+#### Silent Session Restore (`sdk.ready`)
+When `tokenTransport: 'storage'`, the SDK constructor synchronously kicks off a silent refresh if a token exists in storage:
+- The property `sdk.ready: Promise<void>` resolves once silent restore succeeds (or fails).
+- If restore succeeds, the in-memory access token is populated and storage updated with the rotated refresh token.
+- If restore fails (expired or revoked), local storage is purged, access token cleared, and `"session-expired"` and `"signed-out"` events are dispatched.
+
+#### Cross-Tab Coordination
+- **`navigator.locks`**: Serializes concurrent refresh calls across tabs under `sentinel_lock_<sha16>`.
+- **`BroadcastChannel`**: The winning tab broadcasts `REFRESH_SUCCESS` with the new tokens across `sentinel_channel_<sha16>`. Waiting tabs apply the updated access token without making additional network calls.
+- **Cross-tab Logout**: When a tab calls `logout()`, a `SIGNED_OUT` message is broadcasted, clearing session state and dispatching `"signed-out"` across all open tabs.
+

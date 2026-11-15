@@ -18,7 +18,7 @@ import {
   verifyRefreshToken,
 } from "../utils/jwt";
 import { env } from "../config/env";
-import { randomBytes } from "crypto";
+import { randomBytes, randomUUID } from "crypto";
 import { assembleFeatureVector, getRiskScore } from "./risk.service";
 import { sendOtpEmail } from "./email.service";
 import {
@@ -29,6 +29,10 @@ import {
 import { lookupIp } from "../lib/geoip";
 import { computeGeoVelocity, isImpossibleTravel } from "../lib/geo-velocity";
 import { checkAndRecordDeviceFingerprint } from "./device-fingerprint.service.js";
+import {
+  issueInitialRefreshToken,
+  rotateRefreshToken,
+} from "./refresh-issuance.service";
 
 export interface LoginInput {
   tenantId: string;
@@ -270,12 +274,14 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
       return;
     }
 
+    const sessionId = randomUUID();
     accessToken = signJwt(
       {
         sub: user.id,
         tenantId,
         email: user.email,
         isVerified: user.isVerified,
+        sessionId,
       },
       tenant.privateKeyEncrypted
     );
@@ -286,6 +292,7 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
     const [session] = await tenantDb
       .insert(schema.sessions)
       .values({
+        id: sessionId,
         tenantId,
         userId: user.id,
         tokenHash,
@@ -294,9 +301,10 @@ export async function loginUser(input: LoginInput): Promise<LoginOutput> {
       })
       .returning({ id: schema.sessions.id });
 
-    refreshToken = signRefreshToken({
-      sub: user.id,
+    refreshToken = await issueInitialRefreshToken({
+      client,
       tenantId,
+      userId: user.id,
       sessionId: session.id,
     });
 
@@ -362,13 +370,34 @@ function parseExpiry(expiry: string): number {
 export async function logoutUser(
   tenantId: string,
   userId: string,
-  token: string
+  token: string,
+  refreshToken?: string
 ): Promise<void> {
   const tokenHash = hashToken(token);
 
   await withTenant(tenantId, async (client: PoolClient) => {
     const tenantDb = drizzle(client, { schema });
 
+    if (env.REQ_BODY_TOKENS && refreshToken) {
+      // Body mode: revoke by refresh-token family (session), which allows
+      // logout even after the access token has expired.
+      const refreshHash = hashToken(refreshToken);
+      const historyRows = await client.query<{ session_id: string }>(
+        `SELECT session_id FROM refresh_token_history WHERE tenant_id = $1 AND token_hash = $2 LIMIT 1`,
+        [tenantId, refreshHash]
+      );
+      if (historyRows.rows.length > 0) {
+        const sessionId = historyRows.rows[0].session_id;
+        await client.query(
+          `UPDATE sessions SET is_revoked = true WHERE id = $1 AND tenant_id = $2 AND user_id = $3`,
+          [sessionId, tenantId, userId]
+        );
+        return;
+      }
+      // Fall through to access-token-based revocation if refresh not found.
+    }
+
+    // Cookie mode (or body mode without a refresh token): revoke by access token hash.
     await tenantDb
       .update(schema.sessions)
       .set({ isRevoked: true })
@@ -404,78 +433,130 @@ export async function refreshAccessToken(
   if (!tenant?.privateKeyEncrypted) {
     throw new AuthenticationError("Tenant configuration error");
   }
+
   let accessToken: string;
+  let newRefreshToken: string;
+
   await withTenant(tenantId, async (client: PoolClient) => {
-    const tenantDb = drizzle(client, { schema });
+    if (env.REQ_BODY_TOKENS) {
+      // ── Body mode: full rotation with history table ───────────────────────
+      const rotated = await rotateRefreshToken({ client, tenantId, refreshToken });
 
-    const [session] = await tenantDb
-      .select()
-      .from(schema.sessions)
-      .where(
-        and(
-          eq(schema.sessions.tenantId, tenantId),
-          eq(schema.sessions.userId, payload.sub),
-          eq(schema.sessions.id, payload.sessionId)
+      // Verify the user still exists.
+      const tenantDb = drizzle(client, { schema });
+      const [user] = await tenantDb
+        .select()
+        .from(schema.users)
+        .where(
+          and(
+            eq(schema.users.id, rotated.accessTokenSub),
+            eq(schema.users.tenantId, tenantId)
+          )
         )
-      )
-      .limit(1);
+        .limit(1);
 
-    if (!session || session.isRevoked) {
-      throw new AuthenticationError("Session is invalid or has been revoked");
-    }
+      if (!user) {
+        throw new AuthenticationError("User not found");
+      }
 
-    const [user] = await tenantDb
-      .select()
-      .from(schema.users)
-      .where(
-        and(
-          eq(schema.users.id, payload.sub),
-          eq(schema.users.tenantId, tenantId)
-        )
-      )
-      .limit(1);
+      newRefreshToken = rotated.newRefreshToken;
 
-    if (!user) {
-      throw new AuthenticationError("User not found");
-    }
-
-    refreshToken = signRefreshToken({
-      sub: user.id,
-      tenantId,
-      sessionId: session.id,
-    });
-
-    accessToken = signJwt(
-      {
-        sub: user.id,
-        tenantId: user.tenantId,
-        email: user.email,
-        isVerified: user.isVerified,
-      },
-      tenant.privateKeyEncrypted
-    );
-
-    const newTokenHash = hashToken(accessToken);
-    const newExpiresAt = new Date(
-      Date.now() + parseExpiry(env.JWT_ACCESS_EXPIRY)
-    );
-
-    await tenantDb
-      .update(schema.sessions)
-      .set({
-        tokenHash: newTokenHash,
-        expiresAt: newExpiresAt,
-      })
-      .where(
-        and(
-          eq(schema.sessions.id, session.id),
-          eq(schema.sessions.tenantId, tenantId)
-        )
+      // In body mode, access-token validation does NOT use hash equality
+      // (that would invalidate other tabs). We mint a fresh access token;
+      // userAuth only checks session existence + revocation status.
+      accessToken = signJwt(
+        {
+          sub: user.id,
+          tenantId: user.tenantId,
+          email: user.email,
+          isVerified: user.isVerified,
+          sessionId: rotated.sessionId,
+        },
+        tenant.privateKeyEncrypted
       );
-    // console.log("✅ Updated tokenHash to:", newTokenHash);
-    // console.log("✅ For sessionId:", session.id);
+
+      // Update the access-token hash + expiry on the session for cookie-mode
+      // compatibility (body mode userAuth no longer checks the hash, but we
+      // keep the field accurate for metrics/debugging).
+      const newTokenHash = hashToken(accessToken);
+      const newExpiresAt = new Date(Date.now() + parseExpiry(env.JWT_ACCESS_EXPIRY));
+      await client.query(
+        `UPDATE sessions SET token_hash = $1, expires_at = $2 WHERE id = $3 AND tenant_id = $4`,
+        [newTokenHash, newExpiresAt, rotated.sessionId, tenantId]
+      );
+    } else {
+      // ── Cookie mode: existing behavior unchanged ──────────────────────────
+      const tenantDb = drizzle(client, { schema });
+
+      const [session] = await tenantDb
+        .select()
+        .from(schema.sessions)
+        .where(
+          and(
+            eq(schema.sessions.tenantId, tenantId),
+            eq(schema.sessions.userId, payload.sub),
+            eq(schema.sessions.id, payload.sessionId)
+          )
+        )
+        .limit(1);
+
+      if (!session || session.isRevoked) {
+        throw new AuthenticationError("Session is invalid or has been revoked");
+      }
+
+      const [user] = await tenantDb
+        .select()
+        .from(schema.users)
+        .where(
+          and(
+            eq(schema.users.id, payload.sub),
+            eq(schema.users.tenantId, tenantId)
+          )
+        )
+        .limit(1);
+
+      if (!user) {
+        throw new AuthenticationError("User not found");
+      }
+
+      newRefreshToken = signRefreshToken({
+        sub: user.id,
+        tenantId,
+        sessionId: session.id,
+      });
+
+      accessToken = signJwt(
+        {
+          sub: user.id,
+          tenantId: user.tenantId,
+          email: user.email,
+          isVerified: user.isVerified,
+          sessionId: session.id,
+        },
+        tenant.privateKeyEncrypted
+      );
+
+      const newTokenHash = hashToken(accessToken);
+      const newExpiresAt = new Date(
+        Date.now() + parseExpiry(env.JWT_ACCESS_EXPIRY)
+      );
+
+      await tenantDb
+        .update(schema.sessions)
+        .set({
+          tokenHash: newTokenHash,
+          expiresAt: newExpiresAt,
+        })
+        .where(
+          and(
+            eq(schema.sessions.id, session.id),
+            eq(schema.sessions.tenantId, tenantId)
+          )
+        );
+    }
   });
-  return { accessToken: accessToken!, refreshToken: refreshToken };
+
+  return { accessToken: accessToken!, refreshToken: newRefreshToken! };
 }
 
 export interface LogFailedLoginOptions {

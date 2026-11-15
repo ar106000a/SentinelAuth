@@ -10,6 +10,7 @@ export interface JwtPayload {
   tenantId: string;
   email: string;
   isVerified: boolean;
+  sessionId?: string; // present in body mode; absent in legacy cookie-mode tokens
   iat?: number;
   exp?: number;
 }
@@ -36,6 +37,7 @@ const JwtPayloadSchema = z.object({
   tenantId: z.string(),
   email: z.string(),
   isVerified: z.boolean(),
+  sessionId: z.string().optional(),
   iat: z.number().optional(),
   exp: z.number().optional(),
 });
@@ -61,6 +63,7 @@ export interface RefreshTokenPayload {
   sessionId: string;
   iat?: number;
   exp?: number;
+  jti?: string;
 }
 
 const refreshTokenPayloadSchema = z.object({
@@ -69,18 +72,21 @@ const refreshTokenPayloadSchema = z.object({
   sessionId: z.string(),
   iat: z.number().optional(),
   exp: z.number().optional(),
+  jti: z.string().optional(),
 });
 
 export function signRefreshToken(
-  paylaod: Omit<RefreshTokenPayload, "iat" | "exp">
+  payload: Omit<RefreshTokenPayload, "iat" | "exp" | "jti">,
+  expiresIn?: SignOptions["expiresIn"]
 ): string {
   const options: SignOptions = {
     algorithm: "HS256",
-    expiresIn: env.JWT_REFRESH_EXPIRY as SignOptions["expiresIn"],
+    expiresIn: expiresIn ?? (env.JWT_REFRESH_EXPIRY as SignOptions["expiresIn"]),
     issuer: env.JWT_ISSUER,
+    jwtid: randomUUID(),
   };
 
-  return jwt.sign(paylaod, env.JWT_REFRESH_SECRET, options);
+  return jwt.sign(payload, env.JWT_REFRESH_SECRET, options);
 }
 
 export function verifyRefreshToken(token: string): RefreshTokenPayload {

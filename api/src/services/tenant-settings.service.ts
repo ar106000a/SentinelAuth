@@ -6,6 +6,7 @@ import { NotFoundError, ValidationError } from "../utils/error";
 export interface TenantSettings {
   riskThreshold: number;
   failOpen: boolean;
+  allowedOrigins?: string[];
 }
 
 export async function getTenantSettings(
@@ -34,6 +35,7 @@ export async function updateTenantSettings(
   const merged: TenantSettings = {
     riskThreshold: updates.riskThreshold ?? current.riskThreshold,
     failOpen: updates.failOpen ?? current.failOpen,
+    allowedOrigins: updates.allowedOrigins ?? current.allowedOrigins ?? [],
   };
 
   if (merged.riskThreshold < 0 || merged.riskThreshold > 1) {

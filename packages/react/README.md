@@ -88,3 +88,27 @@ function CustomLoginForm() {
   // build your own form, call login(email, password) yourself
 }
 \`\`\`
+
+## Token Transport: Cookie vs Storage
+
+SentinelAuth supports two token transport options via the `tokenTransport` prop on `<SentinelAuthProvider>`:
+
+\`\`\`tsx
+<SentinelAuthProvider
+  apiUrl="https://auth.company.com"
+  apiKey="your-tenant-key"
+  tokenTransport="storage" // 'cookie' (default) or 'storage'
+>
+  <App />
+</SentinelAuthProvider>
+\`\`\`
+
+### Security Considerations & Tradeoffs
+- **Cookie Mode (`tokenTransport="cookie"`, Default)**:
+  Refresh tokens are stored in `HttpOnly`, `SameSite=Strict` cookies. Javascript running in the page cannot access the refresh token, providing strong defense against XSS token theft. Recommended for all applications hosted on the same domain or custom subdomains.
+- **Storage Mode (`tokenTransport="storage"`)**:
+  Refresh tokens are managed in browser storage (`localStorage` by default). This solves third-party cookie blocking in cross-domain Single Page Applications (e.g. Safari ITP, Chrome Privacy Sandbox).
+  > **XSS Tradeoff**: Persisting refresh tokens in client storage makes them readable by any script executing in your origin. If your application has an XSS vulnerability, an attacker can extract the stored refresh token. Use cookie transport whenever feasible.
+
+### Deploy-Time Session Re-Login Notice
+When switching your backend deployment between cookie mode and body/storage mode (`REQ_BODY_TOKENS`), existing active sessions cannot be interchanged. Sessions issued under cookie mode will return `TRANSPORT_MISMATCH` on refresh in storage mode, requiring users to log in again once after deployment.

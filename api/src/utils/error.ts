@@ -18,8 +18,11 @@ export class ValidationError extends AppError {
 }
 
 export class AuthenticationError extends AppError {
-  constructor(message: string = "Authentication failed") {
-    super(message, 401, "AUTHENTICATION_ERROR");
+  constructor(
+    message: string = "Authentication failed",
+    code: string = "AUTHENTICATION_ERROR"
+  ) {
+    super(message, 401, code);
   }
 }
 

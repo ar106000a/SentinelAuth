@@ -40,6 +40,7 @@ Built from the ground up as a real product — not a proof of concept — with t
 | 🕵️ **Active Threat Detection**           | Redis-backed credential stuffing detection (sliding window, IP-level) and login velocity anomaly detection (distributed account-targeting, account-level) — two independent, complementary detectors. |
 | 🧩 **Drop-in, Themeable UI**             | Framework-agnostic Web Components (Shadow DOM + CSS custom properties) for login, registration, OTP, and MFA — restyle to match any brand without fighting encapsulation.                             |
 | ⚛️ **First-Class React/Next.js Support** | A dedicated `@sentinelauth/react` wrapper — not just "technically works in React," but idiomatic hooks and components with SSR handled correctly out of the box.                                      |
+| 🔄 **Dual Refresh Token Transport**     | Supports both HttpOnly cookies for first-party domains and body/storage transport with family rotation, grace-window recovery, and cross-tab Web Locks synchronization for cross-origin SPAs.         |
 | 🛡️ **Compromised Password Prevention**   | Have I Been Pwned integration via k-anonymity — checked at registration and every password change, without ever transmitting the real password or full hash.                                          |
 
 ---

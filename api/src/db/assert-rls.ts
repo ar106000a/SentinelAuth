@@ -7,6 +7,7 @@ const REQUIRED_TABLES = [
   "otp_tokens",
   "risk_logs",
   "device_fingerprints",
+  "refresh_token_history",
 ] as const;
 
 export async function assertRlsEnabled(): Promise<void> {
