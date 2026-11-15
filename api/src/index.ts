@@ -36,7 +36,7 @@ app.onError((err, c) => {
 
 // 2. Observability
 app.use("*", logger());
-
+// app.use('*',logger());
 // 3. CORS
 app.use(
   "*",
@@ -77,6 +77,10 @@ const apiTenantRateLimit = async (c: Context, next: Next) => {
   return tenantRateLimit(config)(c, next);
 };
 
+// Keep this IP limit before tenantContext: authenticating the tenant hits the
+// database, so requests with invalid credentials must be throttled before they
+// can exhaust database resources. It is intentionally charged separately from
+// the post-auth tenant limit; the two buckets are not atomic together.
 app.use("/api/*", apiPreAuthRateLimit);
 app.use("/tenants/*", preAuthRateLimit(DEFAULT_RATE_LIMIT));
 app.use("/dashboard/*", preAuthRateLimit(DEFAULT_RATE_LIMIT));

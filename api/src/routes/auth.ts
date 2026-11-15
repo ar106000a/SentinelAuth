@@ -92,6 +92,7 @@ auth.post("/verify-email", async (c) => {
   return successResponse(c, result, 200);
 });
 
+//Not to confuse credential stuffing guard with rate limiting although they look quite similar. Rate limit will limit for an instant and ll allow as soon as tokens start to refill. But this guard tracks wrong attempts and hard lock that ip for 30 minutes even if rate limit allows it. 
 auth.post("/login", credentialStuffingGuard, async (c) => {
   const tenantId = c.get("tenantId");
   const ip = clientIp(c);
