@@ -1,8 +1,18 @@
 import type { SessionManager } from "./session-manager";
 
+export type TokenTransport = "cookie" | "storage";
+
+export interface StorageAdapter {
+  getItem(key: string): string | null | Promise<string | null>;
+  setItem(key: string, value: string): void | Promise<void>;
+  removeItem(key: string): void | Promise<void>;
+}
+
 export interface SentinelAuthConfig {
   apiUrl: string;
   apiKey: string; // the tenant's secretKey — used as Bearer token
+  tokenTransport?: TokenTransport; // default 'cookie'
+  storage?: StorageAdapter;
 }
 
 export class SentinelAuthError extends Error {
@@ -19,11 +29,13 @@ export class SentinelAuthError extends Error {
 export class HttpClient {
   private baseUrl: string;
   private apiKey: string;
+  private tokenTransport: TokenTransport;
   private sessionManager: SessionManager | null = null;
 
   constructor(config: SentinelAuthConfig) {
     this.baseUrl = config.apiUrl.replace(/\/$/, ""); // strip trailing slash
     this.apiKey = config.apiKey;
+    this.tokenTransport = config.tokenTransport ?? "cookie";
   }
 
   /** Wired up by SentinelAuth once both instances exist -- same
@@ -39,9 +51,11 @@ export class HttpClient {
     extraHeaders: Record<string, string>,
     isRetry: boolean
   ): Promise<TResponse> {
+    const credentials =
+      this.tokenTransport === "storage" ? "omit" : "include";
     const res = await fetch(`${this.baseUrl}${path}`, {
       method,
-      credentials: "include",
+      credentials,
       headers: {
         ...(method === "POST" ? { "content-type": "application/json" } : {}),
         ...extraHeaders,

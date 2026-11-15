@@ -172,7 +172,8 @@ export async function limit(layers: Layer[]): Promise<LimitResult> {
   )) as [number, number, number, number];
 
   const [allowed, failedIdx, remaining, resetInSeconds] = raw;
-
+  //BackLog: Failed index must go to observability
+  
   return {
     allowed: allowed === 1,
     failedIndex: allowed === 1 ? null : failedIdx,

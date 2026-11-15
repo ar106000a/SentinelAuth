@@ -1,20 +1,25 @@
-import { HttpClient, SentinelAuthConfig, SentinelAuthError } from "./client.js";
+import {
+  HttpClient,
+  SentinelAuthConfig,
+  SentinelAuthError,
+  TokenTransport,
+  StorageAdapter,
+} from "./client.js";
 import { tryGetDeviceFingerprint } from "./fingerprint.js";
 import type {
   UserRegistrationResponse,
   UserVerifyEmailResponse,
   LoginResponse,
-  // RefreshResponse,
   ForgotPasswordResponse,
   ResetPasswordResponse,
   MfaSetupResponse,
   MfaVerifyResponse,
   RefreshResponse,
 } from "@sentinelauth/types";
-import { SessionManager } from "./session-manager.js";
+import { SessionManager, defaultStorageAdapter } from "./session-manager.js";
 
-export { SentinelAuthError };
-export type { SentinelAuthConfig };
+export { SentinelAuthError, defaultStorageAdapter };
+export type { SentinelAuthConfig, TokenTransport, StorageAdapter };
 
 export { SentinelAuthLoginElement } from "./components/login-form.js";
 export { SentinelAuthOtpElement } from "./components/otp-input.js";
@@ -31,15 +36,30 @@ export { SentinelAuthMfaDisableElement } from "./components/mfa-disable.js";
 export class SentinelAuth extends EventTarget {
   private http: HttpClient;
   private sessionManager: SessionManager;
+  private explicitTransport?: TokenTransport;
+  readonly tokenTransport: TokenTransport;
+  readonly ready: Promise<void>;
 
   constructor(config: SentinelAuthConfig) {
     super();
     if (!config.apiUrl) throw new Error("SentinelAuth: apiUrl is required");
     if (!config.apiKey) throw new Error("SentinelAuth: apiKey is required");
+    this.explicitTransport = config.tokenTransport;
+    this.tokenTransport = config.tokenTransport ?? "cookie";
     this.http = new HttpClient(config);
-    this.sessionManager = new SessionManager(this.http, () => {
-      dispatchEvent(new CustomEvent("session-expired"));
+    this.sessionManager = new SessionManager(this.http, {
+      apiUrl: config.apiUrl,
+      apiKey: config.apiKey,
+      tokenTransport: this.tokenTransport,
+      storage: config.storage,
+      onSessionExpired: () => {
+        this.dispatchEvent(new CustomEvent("session-expired"));
+      },
+      onSignedOut: () => {
+        this.dispatchEvent(new CustomEvent("signed-out"));
+      },
     });
+    this.ready = this.sessionManager.ready;
     this.http.attachSessionManager(this.sessionManager);
   }
 
@@ -90,7 +110,25 @@ export class SentinelAuth extends EventTarget {
     });
 
     if (!result.mfaRequired) {
+      if (this.tokenTransport === "storage") {
+        if (!result.refreshToken) {
+          throw new SentinelAuthError(
+            "CONFIGURATION_MISMATCH: SDK is in storage mode but server returned no refreshToken in login response.",
+            "CONFIGURATION_MISMATCH",
+            500
+          );
+        }
+        await this.sessionManager.setRefreshToken(result.refreshToken);
+      } else if (this.explicitTransport === "cookie" && result.refreshToken) {
+        throw new SentinelAuthError(
+          "CONFIGURATION_MISMATCH: SDK is in cookie mode but server returned refreshToken in login response body.",
+          "CONFIGURATION_MISMATCH",
+          500
+        );
+      }
       this.sessionManager.setAccessToken(result.accessToken);
+      const { refreshToken: _, ...publicResult } = result;
+      return publicResult as LoginResponse;
     }
     return result;
   }
@@ -104,13 +142,18 @@ export class SentinelAuth extends EventTarget {
         401
       );
     }
-    const result = await this.http.post<{ message: string }>(
-      "/api/auth/logout",
-      {},
-      { "X-User-Token": token }
-    );
-    this.sessionManager.clearSession();
-    return result;
+    const storedRefresh = await this.sessionManager.getRefreshToken();
+    try {
+      const result = await this.http.post<{ message: string }>(
+        "/api/auth/logout",
+        storedRefresh ? { refreshToken: storedRefresh } : {},
+        { "X-User-Token": token }
+      );
+      return result;
+    } finally {
+      await this.sessionManager.clearSession();
+      this.dispatchEvent(new CustomEvent("signed-out"));
+    }
   }
 
   /** Explicit refresh, if a tenant wants to trigger one manually rather
@@ -141,10 +184,6 @@ export class SentinelAuth extends EventTarget {
   }
 
   // ── MFA setup & management ──────────────────────────────────────────────────
-  // accessToken remains an explicit, optional param on all three -- falls
-  // back to the SessionManager's current token if omitted. This keeps every
-  // existing direct-SDK caller and test suite working unchanged, while
-  // letting components (retrofitted below) stop requiring it entirely.
 
   async setupMfa(accessToken?: string): Promise<MfaSetupResponse> {
     const token = this.resolveToken(accessToken);
@@ -193,8 +232,31 @@ export class SentinelAuth extends EventTarget {
         code,
       }
     );
+
+    if (this.tokenTransport === "storage") {
+      if (!result.refreshToken) {
+        throw new SentinelAuthError(
+          "CONFIGURATION_MISMATCH: SDK is in storage mode but server returned no refreshToken in MFA verify response.",
+          "CONFIGURATION_MISMATCH",
+          500
+        );
+      }
+      await this.sessionManager.setRefreshToken(result.refreshToken);
+    } else if (this.explicitTransport === "cookie" && result.refreshToken) {
+      throw new SentinelAuthError(
+        "CONFIGURATION_MISMATCH: SDK is in cookie mode but server returned refreshToken in MFA verify response body.",
+        "CONFIGURATION_MISMATCH",
+        500
+      );
+    }
+
     this.sessionManager.setAccessToken(result.accessToken);
-    return result;
+    const { refreshToken: _, ...publicResult } = result;
+    return publicResult;
+  }
+
+  dispose(): void {
+    this.sessionManager.dispose();
   }
 
   private resolveToken(explicit?: string): string {

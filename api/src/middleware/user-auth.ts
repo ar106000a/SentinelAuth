@@ -8,6 +8,7 @@ import { withTenant } from "../db/with-tenant";
 import { PoolClient } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "../db/schema/index.js";
+import { env } from "../config/env";
 
 export async function userAuth(c: Context, next: Next) {
   const tenantId = c.get("tenantId");
@@ -25,7 +26,6 @@ export async function userAuth(c: Context, next: Next) {
     .where(eq(tenants.id, tenantId))
     .limit(1);
 
-  //   console.log("🔑 publicKey present:", !!tenant?.publicKey);
   if (!tenant?.publicKey) {
     throw new AuthenticationError("Tenant configuration error");
   }
@@ -34,18 +34,10 @@ export async function userAuth(c: Context, next: Next) {
   let payload;
   try {
     payload = verifyJwt(authHeader, tenant.publicKey);
-    // console.log(
-    //   "✅ JWT verified, sub:",
-    //   payload.sub,
-    //   "tenantId:",
-    //   payload.tenantId
-    // );
   } catch {
-    // console.log("❌ verifyJwt threw:", e);
     throw new AuthenticationError("Invalid or expired token");
   }
-  //   console.log("tenantId from context:", tenantId);
-  //   console.log("tenantId from token:", payload.tenantId);
+
   if (!payload || typeof payload.sub !== "string" || !payload.sub) {
     throw new AuthenticationError(
       "Malformed token payload: missing user identity"
@@ -61,36 +53,63 @@ export async function userAuth(c: Context, next: Next) {
   await withTenant(tenantId, async (client: PoolClient) => {
     const tenantDb = drizzle(client, { schema });
 
-    const [session] = await tenantDb
-      .select({
-        id: schema.sessions.id,
-        isRevoked: schema.sessions.isRevoked,
-        expiresAt: schema.sessions.expiresAt,
-      })
-      .from(schema.sessions)
-      .where(
-        and(
-          eq(schema.sessions.tokenHash, tokenHash),
-          eq(schema.sessions.userId, payload.sub)
+    if (env.REQ_BODY_TOKENS) {
+      // ── Body mode ───────────────────────────────────────────────────────────
+      // Do NOT require hash equality — that would invalidate tokens held by
+      // other tabs every time any tab refreshes.
+      // Instead: verify the session exists and is not revoked.
+      const [session] = await tenantDb
+        .select({
+          id: schema.sessions.id,
+          isRevoked: schema.sessions.isRevoked,
+          expiresAt: schema.sessions.expiresAt,
+        })
+        .from(schema.sessions)
+        .where(
+          and(
+            eq(schema.sessions.id, payload.sessionId as string),
+            eq(schema.sessions.userId, payload.sub),
+            eq(schema.sessions.tenantId, tenantId)
+          )
         )
-      )
-      .limit(1);
+        .limit(1);
 
-    // console.log("tokenHash:", tokenHash);
-    // console.log("payload.sub:", payload.sub);
-    // console.log("session found:", session);
-    if (!session) {
-      //   console.log("❌ Session not found");
-      throw new AuthenticationError("Session Not Found");
-    }
+      if (!session) {
+        throw new AuthenticationError("Session Not Found");
+      }
+      if (session.isRevoked) {
+        throw new AuthenticationError("Session has been revoked");
+      }
+      if (new Date() > session.expiresAt) {
+        throw new AuthenticationError("Session has expired");
+      }
+    } else {
+      // ── Cookie mode ─────────────────────────────────────────────────────────
+      // Original hash-equality check unchanged.
+      const [session] = await tenantDb
+        .select({
+          id: schema.sessions.id,
+          isRevoked: schema.sessions.isRevoked,
+          expiresAt: schema.sessions.expiresAt,
+        })
+        .from(schema.sessions)
+        .where(
+          and(
+            eq(schema.sessions.tokenHash, tokenHash),
+            eq(schema.sessions.userId, payload.sub)
+          )
+        )
+        .limit(1);
 
-    if (session.isRevoked) {
-      //   console.log("❌ Session Revoked");
-      throw new AuthenticationError("Session has been revoked");
-    }
-    if (new Date() > session.expiresAt) {
-      //   console.log("❌ Session expired   ");
-      throw new AuthenticationError("Session has expired");
+      if (!session) {
+        throw new AuthenticationError("Session Not Found");
+      }
+      if (session.isRevoked) {
+        throw new AuthenticationError("Session has been revoked");
+      }
+      if (new Date() > session.expiresAt) {
+        throw new AuthenticationError("Session has expired");
+      }
     }
 
     c.set("userId", payload.sub);

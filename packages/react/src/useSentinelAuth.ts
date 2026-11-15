@@ -102,6 +102,8 @@ export function useSentinelAuth() {
     disableMfa,
     verifyMfa,
     getAccessToken,
+    tokenTransport: sdk.tokenTransport,
+    ready: sdk.ready,
     /** Escape hatch — the raw SDK instance, for anything not wrapped above
      * (e.g. addEventListener("session-expired", ...) from SENT-1147). */
     sdk,

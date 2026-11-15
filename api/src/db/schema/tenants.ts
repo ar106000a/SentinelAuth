@@ -12,6 +12,7 @@ export const tenants = pgTable("tenants", {
     .$type<{
       riskThreshold: number;
       failOpen: boolean;
+      allowedOrigins?: string[];
     }>()
     .notNull()
     .default({ riskThreshold: 0.7, failOpen: true }),

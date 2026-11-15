@@ -105,4 +105,37 @@ describe("useSentinelAuth", () => {
 
     expect(firstLogin).toBe(secondLogin);
   });
+
+  it("forwards tokenTransport and storage props to SentinelAuth", () => {
+    const mockStorage = {
+      getItem: vi.fn(),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+    };
+
+    render(
+      <SentinelAuthProvider
+        apiUrl="https://api.example.com"
+        apiKey="test-key"
+        tokenTransport="storage"
+        storage={mockStorage}
+      >
+        <div>custom transport</div>
+      </SentinelAuthProvider>
+    );
+
+    expect(SentinelAuth).toHaveBeenCalledWith({
+      apiUrl: "https://api.example.com",
+      apiKey: "test-key",
+      tokenTransport: "storage",
+      storage: mockStorage,
+    });
+  });
+
+  it("exposes tokenTransport and ready promise", () => {
+    const { result } = renderHook(() => useSentinelAuth(), { wrapper });
+
+    expect(result.current).toHaveProperty("tokenTransport");
+    expect(result.current).toHaveProperty("ready");
+  });
 });

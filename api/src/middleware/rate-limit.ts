@@ -54,6 +54,8 @@ export function preAuthRateLimit(config: RateLimitConfig) {
           requestId: c.get('requestId') ?? null,
         })
       );
+      //Backlog: We need to add this to observability
+      
       await next();
       return;
     }

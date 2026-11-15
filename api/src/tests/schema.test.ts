@@ -7,6 +7,7 @@ import {
   otpTokens,
   riskLogs,
   tenantSessions,
+  refreshTokenHistory,
 } from "../db/schema";
 import { sql } from "drizzle-orm";
 
@@ -29,6 +30,7 @@ describe("Database schema smoke tests", () => {
       adminDb.select().from(sessions).limit(0),
       adminDb.select().from(otpTokens).limit(0),
       adminDb.select().from(riskLogs).limit(0),
+      adminDb.select().from(refreshTokenHistory).limit(0),
     ]);
 
     results.forEach((result) => {
